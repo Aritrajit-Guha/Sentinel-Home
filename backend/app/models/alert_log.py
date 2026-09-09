@@ -1,9 +1,4 @@
-from pydantic import BaseModel
-from datetime import datetime
+"""Shape reserved for the persistence phase.
 
-class AlertLog(BaseModel):
-    household_id: str
-    urgency_score: float
-    message_sent: str
-    sent_at: datetime
-    acknowledged: bool = False
+Alert records are not stored permanently in the beginner version yet.
+"""
