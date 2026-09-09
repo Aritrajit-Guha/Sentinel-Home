@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+pydantic
+motor
+redis
+apscheduler
+celery
+httpx
+twilio
+joblib
+scikit-learn
+pandas
+numpy
+langchain
+langgraph
+pinecone-client
