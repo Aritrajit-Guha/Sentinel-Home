@@ -1,12 +1,61 @@
-from fastapi import FastAPI
-from app.api import households, alerts, admin
+from flask import Flask, jsonify
 
-app = FastAPI(title="SentinelHome API")
+from app.api.admin import admin_bp
+from app.api.alerts import alerts_bp
+from app.api.households import households_bp
+from app.core.config import settings
+from app.core.store import alerts, households
+from app.scheduling.scheduler import start_scheduler
 
-app.include_router(households.router, prefix="/api/households", tags=["households"])
-app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
-app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+def create_app():
+    """Create the Flask application without starting background work."""
+    flask_app = Flask(__name__)
+
+    @flask_app.after_request
+    def add_cors_headers(response):
+        response.headers["Access-Control-Allow-Origin"] = settings.FRONTEND_ORIGIN
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, OPTIONS"
+        return response
+
+    flask_app.register_blueprint(households_bp)
+    flask_app.register_blueprint(alerts_bp)
+    flask_app.register_blueprint(admin_bp)
+
+    if settings.ENABLE_SCHEDULER:
+        start_scheduler()
+
+    @flask_app.get("/health")
+    def health():
+        return jsonify({
+            "status": "ok",
+            "framework": "flask",
+            "persistence": households.mode,
+            "households": len(households),
+            "alerts": len(alerts),
+        })
+
+    @flask_app.errorhandler(404)
+    def not_found(_error):
+        return jsonify({"status": "error", "message": "Route not found"}), 404
+
+    @flask_app.errorhandler(405)
+    def method_not_allowed(_error):
+        return jsonify({"status": "error", "message": "Method not allowed"}), 405
+
+    @flask_app.errorhandler(500)
+    def internal_server_error(_error):
+        return jsonify({
+            "status": "error",
+            "message": "Internal server error",
+        }), 500
+
+    return flask_app
+
+
+app = create_app()
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)

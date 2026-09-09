@@ -1,4 +1,7 @@
-# Periodic job: fetch hazard data, score every household, trigger Phase 4 threshold check
-async def check_all_households():
-    # TODO: loop over households in MongoDB, call hazard_fetcher + scoring_service
-    pass
+"""Scheduled backend monitoring entry point."""
+
+from app.services.monitoring_service import run_monitoring_cycle
+
+
+def check_all_households():
+    return run_monitoring_cycle()
