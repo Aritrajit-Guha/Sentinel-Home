@@ -52,11 +52,11 @@ langchain                 1.4.0
 langchain-classic         1.0.8
 langchain-community       0.4.2
 langchain-core            1.6.2
-langchain-huggingface     1.2.2
-langchain-openai          1.6.1
+langchain-openai          1.6.2
 langchain-pinecone        0.2.13
 langchain-protocol        0.0.19
 langchain-text-splitters  1.1.2
+langchain-voyageai        0.4.1
 langgraph                 1.2.11
 langgraph-checkpoint      4.2.0
 langgraph-prebuilt        1.1.0
@@ -71,6 +71,7 @@ multidict                 6.7.1
 narwhals                  2.26.0
 networkx                  3.6.1
 numpy                     2.4.6
+openai                    3.13.0
 onnxruntime               1.29.0
 opencv-python             5.0.0.93
 orjson                    3.12.0
@@ -107,7 +108,6 @@ rich                      15.0.0
 safetensors               0.8.0
 scikit-learn              1.9.0
 scipy                     1.17.1
-sentence-transformers     6.0.1
 setuptools                84.0.0
 shapely                   2.1.2
 shellingham               1.5.4
@@ -119,12 +119,8 @@ sympy                     1.14.0
 tenacity                  9.1.4
 threadpoolctl             3.6.0
 tiktoken                  0.14.0
-timm                      1.0.29
 tokenizers                0.23.2
-torch                     2.14.0
-torchvision               0.29.0
 tqdm                      4.70.0
-transformers              5.16.1
 truststore                0.10.4
 twilio                    9.11.0
 typer                     0.27.2

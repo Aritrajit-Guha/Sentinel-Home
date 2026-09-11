@@ -10,10 +10,10 @@ from langchain_pinecone import PineconeVectorStore
 
 try:
     # Works when imported as backend.agent.rag.retriever
-    from .ingest import NemotronVLEmbeddings
+    from .ingest import VoyageEmbeddings
 except ImportError:
     # Works when this file is run directly
-    from ingest import NemotronVLEmbeddings
+    from ingest import VoyageEmbeddings
 
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
@@ -30,7 +30,7 @@ def _settings() -> tuple[str, str, str]:
 
     pinecone_api_key = os.getenv("PINECONE_API_KEY")
     pinecone_index_name = os.getenv("PINECONE_INDEX")
-    openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+    voyage_api_key = os.getenv("VOYAGE_API_KEY")
 
     if not pinecone_api_key:
         raise RuntimeError(
@@ -42,15 +42,15 @@ def _settings() -> tuple[str, str, str]:
             "PINECONE_INDEX is missing"
         )
 
-    if not openrouter_api_key:
+    if not voyage_api_key:
         raise RuntimeError(
-            "OPENROUTER_API_KEY is missing"
+            "VOYAGE_API_KEY is missing"
         )
 
     return (
         pinecone_api_key,
         pinecone_index_name,
-        openrouter_api_key,
+        voyage_api_key,
     )
 
 
@@ -61,12 +61,12 @@ def _settings() -> tuple[str, str, str]:
 def get_vector_store() -> PineconeVectorStore:
     """Return a LangChain vector store connected to Pinecone."""
 
-    pinecone_api_key, index_name, openrouter_api_key = (
+    pinecone_api_key, index_name, voyage_api_key = (
         _settings()
     )
 
-    embeddings = NemotronVLEmbeddings(
-        api_key=openrouter_api_key
+    embeddings = VoyageEmbeddings(
+        api_key=voyage_api_key
     )
 
     return PineconeVectorStore(
