@@ -278,36 +278,38 @@ def build_context(
 
 if __name__ == "__main__":
 
-    query = (
-        "What should an elderly person do during an earthquake?"
-    )
+    while True:
+        query = input("Enter question: ")
+        if(query=='exit'):
+            break
+        else:
 
-    results = retrieve_guidance(
-        query,
-        hazard="earthquake",
-        k=3,
-        fetch_k=15,
-        lambda_mult=0.7,
-    )
+            results = retrieve_guidance(
+                query,
+                hazard="earthquake",
+                k=5,
+                fetch_k=15,
+                lambda_mult=0.7,
+            )
 
-    print("\n" + "=" * 70)
-    print("RETRIEVAL RESULTS")
-    print("=" * 70)
+            print("\n" + "=" * 70)
+            print(f"RETRIEVAL RESULTS for {query}")
+            print("=" * 70)
 
-    for index, document in enumerate(
-        results,
-        start=1,
-    ):
+            for index, document in enumerate(
+                results,
+                start=1,
+            ):
 
-        print(
-            f"\n[Source {index}: "
-            f"{document.metadata.get('source')}, "
-            f"page {document.metadata.get('page')}, "
-            f"hazard {document.metadata.get('hazard')}]"
-        )
+                print(
+                    f"\n[Source {index}: "
+                    f"{document.metadata.get('source')}, "
+                    f"page {document.metadata.get('page')}, "
+                    f"hazard {document.metadata.get('hazard')}]"
+                )
 
-        print(
-            document.page_content
-        )
+                print(
+                    document.page_content
+                )
 
-    print("\n" + "=" * 70)
+            print("\n" + "=" * 70)
