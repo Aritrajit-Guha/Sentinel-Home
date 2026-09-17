@@ -1,0 +1,9 @@
+model,mean_cv_weighted_f1,std_cv_weighted_f1,rank,parameters
+XGBoost,0.8520021493089662,0.00019280459514764425,1,"{'model__learning_rate': 0.1, 'model__max_depth': 6, 'model__n_estimators': 300, 'model__subsample': 0.9}"
+CatBoost,0.8500144974470238,6.14700321829309e-05,1,"{'model__depth': 6, 'model__iterations': 400, 'model__learning_rate': 0.1}"
+Random Forest,0.8493462853029128,8.711466805982893e-05,1,"{'model__max_depth': None, 'model__min_samples_leaf': 1, 'model__n_estimators': 200}"
+XGBoost,0.849109152052566,0.00025577260727721596,2,"{'model__learning_rate': 0.1, 'model__max_depth': 6, 'model__n_estimators': 150, 'model__subsample': 0.9}"
+Random Forest,0.848604824612037,0.000151417716507396,2,"{'model__max_depth': None, 'model__min_samples_leaf': 1, 'model__n_estimators': 100}"
+CatBoost,0.8465407424607511,0.00012394016018779652,2,"{'model__depth': 6, 'model__iterations': 200, 'model__learning_rate': 0.1}"
+Decision Tree,0.843962413372303,0.0003077091076367777,1,"{'model__criterion': 'gini', 'model__max_depth': 12, 'model__min_samples_leaf': 1}"
+Decision Tree,0.830124733380201,0.000983345244288114,2,"{'model__criterion': 'gini', 'model__max_depth': 24, 'model__min_samples_leaf': 1}"

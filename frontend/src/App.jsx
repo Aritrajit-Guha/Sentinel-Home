@@ -1,122 +1,121 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
 import './App.css'
+import { ArrowRight, Globe2, ShieldCheck } from 'lucide-react'
 
-function App() {
-  const [count, setCount] = useState(0)
+const backgroundImage = '/assets/background-image.jpg'
+const earthImage = '/assets/earth-image.png'
+const mobileCard = '/assets/mobile-card.png'
+const radarCard = '/assets/radar-card.png'
+const technologyCards = '/assets/technology-card.png'
+const workflowCard = '/assets/workflow-image.png'
 
+export const Desktop = () => {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
+    <main className="desktop">
+      <div className="desktop-canvas">
+        <img
+          className="background-image"
+          alt="Background image"
+          src={backgroundImage}
+        />
+
+        <img
+          className="workflow-card"
+          alt="Workflow card"
+          src={workflowCard}
+        />
+
+        <img
+          className="radar-card"
+          alt="Radar card"
+          src={radarCard}
+        />
+
+        <img
+          className="mobile-card"
+          alt="Mobile emergency alert interface"
+          src={mobileCard}
+        />
+
+        <img
+          className="technology-cards"
+          alt="Technology cards"
+          src={technologyCards}
+        />
+
+        <img
+          className="earth-image"
+          alt="Earth image"
+          src={earthImage}
+        />
+
+        <div className="text">{''}</div>
+
+        <header className="site-nav">
+          <a className="brand" href="#home" aria-label="SentinelHome home">
+            <span className="brand-mark" aria-hidden="true">
+              <ShieldCheck size={28} strokeWidth={1.8} />
+            </span>
+            <span className="brand-copy">
+              <strong>SentinelHome</strong>
+              <small>AI-powered disaster alerts</small>
+            </span>
+          </a>
+
+          <nav className="primary-nav" aria-label="Primary navigation">
+            <a className="active" href="#home">Home</a>
+            <a href="#how-it-works">How it works</a>
+            <a href="#features">Features</a>
+            <a href="#disasters">Disasters</a>
+            <a href="#about">About</a>
+            <a href="#blog">Blog</a>
+          </nav>
+
+          <div className="nav-actions">
+            <button className="language-picker" type="button" aria-label="Select language">
+              <Globe2 size={17} strokeWidth={1.8} />
+              <span>EN</span>
+              <span className="chevron" aria-hidden="true">⌄</span>
+            </button>
+            <a className="nav-cta" href="/signup">
+              Get started
+              <ArrowRight size={17} strokeWidth={2} />
+            </a>
+          </div>
+        </header>
+
+        <section className="hero-copy" aria-labelledby="hero-title">
+          <div className="status-pill">
+            <span className="status-dot" aria-hidden="true" />
+            Real-time&nbsp;&nbsp;•&nbsp;&nbsp;AI-powered&nbsp;&nbsp;•&nbsp;&nbsp;Global coverage
+          </div>
+
+          <h1 id="hero-title">
+            Detect. Predict. Alert.
+            <br />
+            When nature strikes,
+            <br />
+            <span>you’ll know.</span>
+          </h1>
+
           <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+            SentinelHome combines real-time monitoring, advanced AI, and
+            trusted guidance to help you act before a disaster becomes a crisis.
           </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+          <div className="hero-actions">
+            <a className="hero-cta" href="/signup">
+              Get started free
+              <ArrowRight size={19} strokeWidth={2} />
+            </a>
+            <a className="hero-secondary" href="#how-it-works">
+              Explore the system
+              <ArrowRight size={18} strokeWidth={1.8} />
+            </a>
+          </div>
+        </section>
+      </div>
+    </main>
   )
 }
 
-export default App
+export default Desktop

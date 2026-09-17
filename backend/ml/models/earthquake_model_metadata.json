@@ -1,0 +1,114 @@
+{
+  "model_role": "pre-disaster building damage classification",
+  "model_name": "XGBoost",
+  "target": "damage_grade",
+  "class_labels": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "class_to_index": {
+    "1": 0,
+    "2": 1,
+    "3": 2,
+    "4": 3,
+    "5": 4
+  },
+  "index_to_class": {
+    "0": 1,
+    "1": 2,
+    "2": 3,
+    "3": 4,
+    "4": 5
+  },
+  "input_features": [
+    "count_floors_pre_eq",
+    "age_building",
+    "plinth_area_sq_ft",
+    "height_ft_pre_eq",
+    "land_surface_condition",
+    "foundation_type",
+    "roof_type",
+    "ground_floor_type",
+    "other_floor_type",
+    "position",
+    "plan_configuration",
+    "has_superstructure_adobe_mud",
+    "has_superstructure_mud_mortar_stone",
+    "has_superstructure_stone_flag",
+    "has_superstructure_cement_mortar_stone",
+    "has_superstructure_mud_mortar_brick",
+    "has_superstructure_cement_mortar_brick",
+    "has_superstructure_timber",
+    "has_superstructure_bamboo",
+    "has_superstructure_rc_non_engineered",
+    "has_superstructure_rc_engineered",
+    "has_superstructure_other",
+    "magnitude",
+    "epicentral_distance_km",
+    "hypocentral_distance_km",
+    "mmi"
+  ],
+  "numeric_features": [
+    "count_floors_pre_eq",
+    "age_building",
+    "plinth_area_sq_ft",
+    "height_ft_pre_eq",
+    "has_superstructure_adobe_mud",
+    "has_superstructure_mud_mortar_stone",
+    "has_superstructure_stone_flag",
+    "has_superstructure_cement_mortar_stone",
+    "has_superstructure_mud_mortar_brick",
+    "has_superstructure_cement_mortar_brick",
+    "has_superstructure_timber",
+    "has_superstructure_bamboo",
+    "has_superstructure_rc_non_engineered",
+    "has_superstructure_rc_engineered",
+    "has_superstructure_other",
+    "magnitude",
+    "epicentral_distance_km",
+    "hypocentral_distance_km",
+    "mmi"
+  ],
+  "categorical_features": [
+    "land_surface_condition",
+    "foundation_type",
+    "roof_type",
+    "ground_floor_type",
+    "other_floor_type",
+    "position",
+    "plan_configuration"
+  ],
+  "excluded_identifier_columns": [
+    "building_id",
+    "district_id",
+    "vdcmun_id",
+    "ward_id",
+    "data_source"
+  ],
+  "excluded_leakage_columns": [
+    "count_floors_post_eq",
+    "height_ft_post_eq",
+    "condition_post_eq",
+    "technical_solution_proposed"
+  ],
+  "constant_features_removed": [],
+  "dataset_path": "D:\\Vs code Projects\\Sentinel-Home\\backend\\ml\\data\\raw\\earthquake_final_training_dataset_200k.csv",
+  "selection_metric": "weighted_f1",
+  "gpu_used": true,
+  "best_parameters": {
+    "model__learning_rate": 0.1,
+    "model__max_depth": 6,
+    "model__n_estimators": 300,
+    "model__subsample": 0.9
+  },
+  "downstream_risk_layer_inputs": [
+    "household_size",
+    "vulnerable_members",
+    "location",
+    "latitude",
+    "longitude"
+  ]
+}
