@@ -64,16 +64,31 @@ def nearby_earthquakes(
             continue
 
         properties = feature.get("properties") or {}
+        depth_km = coordinates[2] if len(coordinates) > 2 else None
+        try:
+            depth_km = float(depth_km) if depth_km is not None else None
+        except (TypeError, ValueError):
+            depth_km = None
+
+        hypocentral_distance = None
+        if depth_km is not None:
+            hypocentral_distance = sqrt(distance ** 2 + depth_km ** 2)
+
         nearby.append({
             "id": feature.get("id"),
             "magnitude": properties.get("mag"),
+            "mmi": properties.get("mmi"),
             "place": properties.get("place"),
             "time": properties.get("time"),
             "url": properties.get("url"),
             "latitude": event_latitude,
             "longitude": event_longitude,
-            "depth_km": coordinates[2] if len(coordinates) > 2 else None,
+            "depth_km": depth_km,
             "distance_km": round(distance, 2),
+            "hypocentral_distance_km": (
+                round(hypocentral_distance, 2)
+                if hypocentral_distance is not None else None
+            ),
         })
 
     return sorted(nearby, key=lambda event: event["distance_km"])
