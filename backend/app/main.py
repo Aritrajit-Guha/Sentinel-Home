@@ -12,6 +12,13 @@ def create_app():
     """Create the Flask application without starting background work."""
     flask_app = Flask(__name__)
 
+    @flask_app.get("/")
+    def home():
+        return jsonify({
+        "status": "ok",
+        "message": "SentinelHome backend is running"
+    })
+
     @flask_app.after_request
     def add_cors_headers(response):
         response.headers["Access-Control-Allow-Origin"] = settings.FRONTEND_ORIGIN
