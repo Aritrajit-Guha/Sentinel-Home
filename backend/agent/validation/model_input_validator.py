@@ -252,6 +252,16 @@ SUPERSTRUCTURE_COLUMNS: tuple[str, ...] = tuple(
     key for key in DEFAULT_MODEL_VALUES if key.startswith("has_superstructure_")
 )
 
+# household-facing keys -> the has_superstructure_* column the model expects
+# (e.g. "mud_mortar_stone" -> "has_superstructure_mud_mortar_stone"). This is
+# the single mapping both household.py's registration validation and
+# model_parameter_tool.py's parameter-building logic use, so a household's
+# reported materials always land on the same model column everywhere.
+SUPERSTRUCTURE_MATERIAL_TO_COLUMN: dict[str, str] = {
+    column.removeprefix("has_superstructure_"): column
+    for column in SUPERSTRUCTURE_COLUMNS
+}
+
 
 class EarthquakeModelParameters(BaseModel):
     """The 26 fields expected by the saved earthquake model pipeline."""
@@ -322,3 +332,25 @@ def validate_model_parameters(parameters: dict[str, Any]) -> dict[str, Any]:
             values[feature] = DEFAULT_MODEL_VALUES[feature]
 
     return {feature: values[feature] for feature in expected}
+
+
+def superstructure_flags_from_materials(materials: list[str] | None) -> dict[str, int]:
+    """Expand a household's friendly material list into the 11 model columns.
+
+    Every column is set to 0 unless its key is present in `materials` -- the
+    caller (a household explicitly submitting this list at registration) is
+    giving a complete answer, not a partial one, matching how the source
+    dataset itself allows multiple simultaneous 1s but never leaves a column
+    unset. This is the inverse of household.py's
+    SUPERSTRUCTURE_MATERIAL_TO_COLUMN mapping.
+    """
+
+    friendly_to_column = {
+        column.removeprefix("has_superstructure_"): column
+        for column in SUPERSTRUCTURE_COLUMNS
+    }
+    selected = set(materials or [])
+    return {
+        column: 1 if key in selected else 0
+        for key, column in friendly_to_column.items()
+    }

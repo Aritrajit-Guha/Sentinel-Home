@@ -168,6 +168,7 @@ def build_parameter_prompt(household: dict, earthquake: dict) -> str:
         "other_floor_type": household.get("other_floor_type"),
         "position": household.get("position"),
         "plan_configuration": household.get("plan_configuration"),
+        "superstructure_materials": household.get("superstructure_materials"),
     }
 
     earthquake_data = {
@@ -215,6 +216,11 @@ Rules:
 8. Use "Not applicable" for other_floor_type when appropriate.
 9. Do not use post-earthquake fields or damage observations.
 10. Do not use household vulnerability to change building damage parameters.
+11. If superstructure_materials is provided, treat it as the authoritative
+    list of construction materials: set exactly those has_superstructure_*
+    fields to 1 and all others to 0. The backend applies this list directly
+    regardless of your answer, so staying consistent with it avoids
+    contradicting the final input.
 
 Each categorical field only accepts one of these exact values (or null):
 {json.dumps(MODEL_CATEGORICAL_VALUES, indent=2)}
