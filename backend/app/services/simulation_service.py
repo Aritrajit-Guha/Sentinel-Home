@@ -22,8 +22,12 @@ def _fixture(event_id: str) -> dict:
             "type": "Feature",
             "id": event_id,
             "properties": {
-                "mag": 7.5,
-                "mmi": 9.5,
+                # This controlled fixture must exercise the alert branch for
+                # ordinary registered households, not only severely damaged
+                # buildings. It remains a plausible severe earthquake and is
+                # still passed through the real ML/urgency workflow.
+                "mag": 8.5,
+                "mmi": 10.0,
                 "place": "SentinelHome controlled earthquake simulation",
                 "time": 1772178748744,
                 "url": None,
