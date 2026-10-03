@@ -80,6 +80,7 @@ from functools import lru_cache
 
 from dotenv import load_dotenv
 from agent.validation.model_input_validator import EarthquakeModelParameters
+from app.core.retry import retry_call
 
 
 load_dotenv(override=True)
@@ -133,7 +134,7 @@ def generate_model_parameters(prompt: str) -> dict:
         raise ValueError("prompt must be a non-empty string")
 
     try:
-        result = get_structured_llm().invoke(prompt)
+        result = retry_call(lambda: get_structured_llm().invoke(prompt))
     except Exception as exc:
         raise RuntimeError(
             f"Gemini parameter generation failed: {exc}"
@@ -161,7 +162,7 @@ def generate_guidance_text(prompt: str) -> str:
         raise ValueError("prompt must be a non-empty string")
 
     try:
-        result = get_llm().invoke(prompt)
+        result = retry_call(lambda: get_llm().invoke(prompt))
     except Exception as exc:
         raise RuntimeError(
             f"Gemini guidance generation failed: {exc}"

@@ -7,6 +7,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_pinecone import PineconeVectorStore
+from app.core.retry import retry_call
 
 try:
     # Works when imported as backend.agent.rag.retriever
@@ -164,13 +165,10 @@ def retrieve_guidance(
             }
         }
 
-    return vector_store.max_marginal_relevance_search(
-        query=query,
-        k=k,
-        fetch_k=fetch_k,
-        lambda_mult=lambda_mult,
+    return retry_call(lambda: vector_store.max_marginal_relevance_search(
+        query=query, k=k, fetch_k=fetch_k, lambda_mult=lambda_mult,
         filter=metadata_filter,
-    )
+    ))
 
 
 # ============================================================

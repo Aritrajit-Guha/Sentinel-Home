@@ -24,7 +24,15 @@ def assess_node(state: SentinelState) -> SentinelState:
     try:
         assessment = assess_household_risk(household, earthquake)
     except Exception as exc:
-        return append_error(trace_event(traced, stage="ml_inference", status="failed", title="ML assessment failed", error=str(exc)), f"assessment failed: {exc}")
+        return append_error(trace_event(traced, stage="parameter_generation", status="failed", title="ML parameter generation failed", error=str(exc)), f"assessment failed: {exc}")
+    traced = trace_event(
+        traced,
+        stage="parameter_generation",
+        status="completed",
+        title="Validated ML parameters generated",
+        detail="The parameter payload passed validation and is ready for XGBoost.",
+        response={"parameters": assessment.get("parameters", {}), "valid": True},
+    )
     traced = trace_event(
         traced,
         stage="ml_inference",

@@ -3,21 +3,26 @@
 from math import asin, cos, radians, sin, sqrt
 
 import httpx
+from app.core.retry import retry_call
 
 USGS_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson"
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 
 def fetch_earthquake_data():
-    response = httpx.get(USGS_URL, timeout=15.0)
-    response.raise_for_status()
-    return response.json()
+    def request():
+        response = httpx.get(USGS_URL, timeout=15.0)
+        response.raise_for_status()
+        return response.json()
+    return retry_call(request)
 
 
 def fetch_weather_data(lat: float, lon: float):
     params = {"latitude": lat, "longitude": lon, "current_weather": True}
-    response = httpx.get(OPEN_METEO_URL, params=params, timeout=15.0)
-    response.raise_for_status()
-    return response.json()
+    def request():
+        response = httpx.get(OPEN_METEO_URL, params=params, timeout=15.0)
+        response.raise_for_status()
+        return response.json()
+    return retry_call(request)
 
 
 def distance_km(latitude_a: float, longitude_a: float, latitude_b: float, longitude_b: float) -> float:
