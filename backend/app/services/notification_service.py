@@ -1,5 +1,7 @@
 """Notification boundary for Twilio SMS and voice delivery."""
 
+import re
+
 from twilio.rest import Client
 from app.core.config import settings
 
@@ -20,10 +22,22 @@ def _from_number() -> str:
     return settings.TWILIO_FROM_NUMBER
 
 
+def _e164(value: str) -> str:
+    """Normalize a user-entered international number for Twilio."""
+
+    raw = str(value or "").strip()
+    digits = re.sub(r"\D", "", raw)
+    if digits.startswith("00"):
+        digits = digits[2:]
+    if not digits:
+        raise ValueError("A phone number is required")
+    return f"+{digits}"
+
+
 def send_sms(to: str, body: str):
     if not to or not body:
         raise ValueError("SMS recipient and body are required")
-    return _client().messages.create(body=body, from_=_from_number(), to=to)
+    return _client().messages.create(body=body, from_=_from_number(), to=_e164(to))
 
 
 def send_whatsapp(to: str, body: str):
@@ -31,9 +45,7 @@ def send_whatsapp(to: str, body: str):
         raise ValueError("WhatsApp recipient and body are required")
     if not settings.TWILIO_WHATSAPP_FROM:
         raise NotificationConfigurationError("TWILIO_WHATSAPP_FROM is not configured")
-    recipient = str(to).strip()
-    if not recipient.startswith("whatsapp:"):
-        recipient = f"whatsapp:{recipient}"
+    recipient = f"whatsapp:{_e164(to.removeprefix('whatsapp:'))}"
     sender = settings.TWILIO_WHATSAPP_FROM.strip()
     if not sender.startswith("whatsapp:"):
         sender = f"whatsapp:{sender}"
@@ -43,7 +55,7 @@ def send_whatsapp(to: str, body: str):
 def make_call(to: str, twiml_url: str):
     if not to or not twiml_url:
         raise ValueError("call recipient and TwiML URL are required")
-    return _client().calls.create(url=twiml_url, to=to, from_=_from_number())
+    return _client().calls.create(url=twiml_url, to=_e164(to), from_=_from_number())
 
 
 def voice_url_for(alert_id: str, household_id: str) -> str:

@@ -7,6 +7,7 @@ from unittest.mock import patch
 from app.core.store import alerts, households
 from app.services.alert_service import create_alert
 from app.services.delivery_service import process_pending_alerts
+from app.services import notification_service
 
 
 class DeliveryTests(unittest.TestCase):
@@ -59,3 +60,21 @@ class DeliveryTests(unittest.TestCase):
             result = process_pending_alerts()
         self.assertEqual(result["voice_escalations"], 1)
         self.assertEqual(alerts["delivery-household"][0]["status"], "escalated")
+
+    def test_whatsapp_normalizes_formatted_international_number(self):
+        captured = {}
+
+        class Messages:
+            def create(self, **kwargs):
+                captured.update(kwargs)
+                return type("Message", (), {"sid": "SM-test"})()
+
+        fake_client = type("Client", (), {"messages": Messages()})()
+        with patch.object(notification_service, "_client", return_value=fake_client), \
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_FROM", "+17372508034"):
+            notification_service.send_whatsapp(
+                "+91 82503 16944", "Take shelter."
+            )
+
+        self.assertEqual(captured["to"], "whatsapp:+918250316944")
+        self.assertEqual(captured["from_"], "whatsapp:+17372508034")
