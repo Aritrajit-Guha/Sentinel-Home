@@ -55,8 +55,25 @@ def send_whatsapp(to: str, body: str):
     if content_sid:
         payload["content_sid"] = content_sid
         payload["content_variables"] = json.dumps({"1": body})
-    else:
-        payload["body"] = body
+        try:
+            return _client().messages.create(**payload)
+        except Exception as exc:
+            # Twilio trial accounts may expose Sandbox sending while rejecting
+            # Content API/template requests. Retry as a free-form Sandbox
+            # message, which is valid during the user's 24-hour service window.
+            error_text = str(exc).lower()
+            template_errors = (
+                "contentsid is invalid",
+                "contentsid required",
+                "content sid is invalid",
+                "content api",
+                "not available on a trial account",
+            )
+            if not any(item in error_text for item in template_errors):
+                raise
+            fallback = {"from_": sender, "to": recipient, "body": body}
+            return _client().messages.create(**fallback)
+    payload["body"] = body
     return _client().messages.create(**payload)
 
 

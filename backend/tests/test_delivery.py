@@ -81,3 +81,25 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(captured["from_"], "whatsapp:+17372508034")
         self.assertEqual(captured["content_sid"], "HX-template")
         self.assertEqual(captured["content_variables"], '{"1": "Take shelter."}')
+
+    def test_whatsapp_falls_back_to_free_form_when_template_is_rejected(self):
+        requests = []
+
+        class Messages:
+            def create(self, **kwargs):
+                requests.append(kwargs)
+                if "content_sid" in kwargs:
+                    raise RuntimeError("HTTP 400 error: The ContentSid is Invalid")
+                return type("Message", (), {"sid": "MM-fallback"})()
+
+        fake_client = type("Client", (), {"messages": Messages()})()
+        with patch.object(notification_service, "_client", return_value=fake_client), \
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_FROM", "+17372508034"), \
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_CONTENT_SID", "HX-template"):
+            message = notification_service.send_whatsapp(
+                "+91 82503 16944", "Take shelter."
+            )
+
+        self.assertEqual(message.sid, "MM-fallback")
+        self.assertEqual(requests[-1]["body"], "Take shelter.")
+        self.assertNotIn("content_sid", requests[-1])
