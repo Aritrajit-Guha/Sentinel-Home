@@ -4,3 +4,10 @@ services:
     env: python
     buildCommand: pip install -r backend/requirements.txt
     startCommand: gunicorn app.main:app --bind 0.0.0.0:$PORT --timeout 180
+    envVars:
+      - key: PERSISTENCE
+        value: mongo
+      - key: MONGO_DB_NAME
+        value: sentinelhome
+      - key: MONGO_URI
+        sync: false
