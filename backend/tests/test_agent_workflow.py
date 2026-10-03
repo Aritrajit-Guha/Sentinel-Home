@@ -73,6 +73,17 @@ class AgentWorkflowTests(unittest.TestCase):
         self.assertEqual(result["confirmation_status"], "pending")
         self.assertTrue(alerts.get(household["id"]))
 
+    def test_new_alert_marks_previously_safe_household_unsafe(self):
+        household = _household(safe=True)
+        advice = {"message": "Move to a safer location.", "sources": [], "grounded": False}
+        with patch("agent.graph.nodes.assess.assess_household_risk", return_value=_assessment("high")), \
+             patch("agent.graph.nodes.advise.generate_advice_for_household", return_value=advice), \
+             patch("agent.graph.nodes.alert.settings.AUTO_SEND_ALERTS", False):
+            result = run_agent_workflow(household, _earthquake())
+        self.assertFalse(result["household"]["safe"])
+        self.assertEqual(result["confirmation_status"], "pending")
+        self.assertFalse(households[household["id"]]["safe"])
+
 
     def test_expired_alert_marks_escalation_required(self):
         created_at = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()

@@ -30,4 +30,14 @@ def alert_node(state: SentinelState) -> SentinelState:
             alert = {**alert, "delivery_status": "failed", "delivery_error": str(exc)}
             return append_error({**state, "alert": alert}, f"WhatsApp delivery failed: {exc}")
 
-    return {**state, "alert": alert, "confirmation_status": "pending"}
+    # create_alert persists safe=False, but the household object carried in
+    # the graph state is a copy from before persistence. Keep the graph state
+    # consistent so observe_node waits for confirmation instead of treating a
+    # newly-created alert as already confirmed.
+    updated_household = {**household, "safe": False}
+    return {
+        **state,
+        "household": updated_household,
+        "alert": alert,
+        "confirmation_status": "pending",
+    }
