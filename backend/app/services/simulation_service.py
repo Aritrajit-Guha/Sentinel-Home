@@ -22,15 +22,15 @@ def _fixture(event_id: str) -> dict:
             "type": "Feature",
             "id": event_id,
             "properties": {
-                "mag": 5.0,
-                "mmi": 6.9,
+                "mag": 7.5,
+                "mmi": 9.5,
                 "place": "SentinelHome controlled earthquake simulation",
                 "time": 1772178748744,
                 "url": None,
             },
             "geometry": {
                 "type": "Point",
-                "coordinates": [87.31192, 23.520445, 20.0],
+                "coordinates": [87.31192, 23.520445, 8.0],
             },
         }],
     }
