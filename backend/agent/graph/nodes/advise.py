@@ -32,6 +32,27 @@ FALLBACK_MESSAGE = (
 )
 
 
+def _fallback_advice(query: str, *, sources: list[dict] | None = None, error: Exception | None = None) -> dict:
+    """Return safe advice when an optional guidance provider is unavailable.
+
+    A provider outage must not prevent a high-risk assessment from creating an
+    alert.  The fallback deliberately does not claim to be generated from the
+    retrieved documents; any documents already retrieved are still returned
+    for auditability.
+    """
+
+    result = {
+        "message": FALLBACK_MESSAGE,
+        "sources": sources or [],
+        "query": query,
+        "grounded": False,
+        "degraded": True,
+    }
+    if error is not None:
+        result["generation_error"] = str(error)
+    return result
+
+
 def generate_advice_for_household(
     household: dict,
     earthquake: dict,
@@ -56,16 +77,17 @@ def generate_advice_for_household(
     from agent.tools.llm_client import generate_guidance_text
 
     query = build_retrieval_query(earthquake, assessment)
-    documents = retrieve_guidance(query, hazard=hazard, k=k)
+    try:
+        documents = retrieve_guidance(query, hazard=hazard, k=k)
+    except Exception as exc:
+        # RAG is an enhancement to the alert, not a reason to suppress a
+        # life-safety notification when Pinecone or the embedding provider is
+        # temporarily unavailable.
+        return _fallback_advice(query, error=exc)
     context = build_context(documents)
 
     if not documents or context.strip() == NO_GUIDANCE_FOUND:
-        return {
-            "message": FALLBACK_MESSAGE,
-            "sources": [],
-            "query": query,
-            "grounded": False,
-        }
+        return _fallback_advice(query)
 
     prompt = build_guidance_prompt(
         household=household,
@@ -73,8 +95,6 @@ def generate_advice_for_household(
         assessment=assessment,
         context=context,
     )
-    message = generate_guidance_text(prompt)
-
     sources = [
         {
             "source": document.metadata.get("source", "unknown source"),
@@ -83,6 +103,14 @@ def generate_advice_for_household(
         }
         for document in documents
     ]
+
+    try:
+        message = generate_guidance_text(prompt)
+    except Exception as exc:
+        # Gemini can transiently return 5xx/503 responses.  Preserve the
+        # retrieved source metadata and continue with conservative advice so
+        # the alert and its delivery state are still recorded.
+        return _fallback_advice(query, sources=sources, error=exc)
 
     return {
         "message": message,

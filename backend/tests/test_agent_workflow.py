@@ -88,3 +88,15 @@ class AgentWorkflowTests(unittest.TestCase):
         self.assertEqual(result["confirmation_status"], "timeout")
         self.assertTrue(result["escalation_required"])
         self.assertEqual(result["alert"]["status"], "escalation_pending")
+
+    def test_provider_failure_keeps_high_risk_alert_path_alive(self):
+        from agent.graph.nodes.advise import _fallback_advice
+
+        result = _fallback_advice(
+            "earthquake guidance",
+            sources=[{"source": "guide.pdf", "page": 1}],
+            error=RuntimeError("503 unavailable"),
+        )
+        self.assertTrue(result["degraded"])
+        self.assertEqual(result["sources"][0]["source"], "guide.pdf")
+        self.assertIn("503 unavailable", result["generation_error"])
