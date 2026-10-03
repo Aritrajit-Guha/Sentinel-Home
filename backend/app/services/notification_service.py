@@ -56,9 +56,11 @@ def send_whatsapp(to: str, body: str):
     if content_sid:
         payload["content_sid"] = content_sid
         variables = {"1": body}
-        if settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLE_COUNT >= 2:
+        variable_count = settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLE_COUNT
+        if variable_count >= 2:
             variables["2"] = datetime.now(timezone.utc).strftime("%H:%M UTC")
-        payload["content_variables"] = json.dumps(variables)
+        if variable_count > 0:
+            payload["content_variables"] = json.dumps(variables)
         try:
             return _client().messages.create(**payload)
         except Exception as exc:

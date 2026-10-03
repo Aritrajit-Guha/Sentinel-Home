@@ -102,6 +102,23 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(variables["1"], "Take shelter.")
         self.assertRegex(variables["2"], r"^\d{2}:\d{2} UTC$")
 
+    def test_whatsapp_omits_variables_for_no_variable_template(self):
+        captured = {}
+
+        class Messages:
+            def create(self, **kwargs):
+                captured.update(kwargs)
+                return type("Message", (), {"sid": "MM-no-vars"})()
+
+        fake_client = type("Client", (), {"messages": Messages()})()
+        with patch.object(notification_service, "_client", return_value=fake_client), \
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_FROM", "+17372508034"), \
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_CONTENT_SID", "HX-template"), \
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_TEMPLATE_VARIABLE_COUNT", 0):
+            notification_service.send_whatsapp("+918250316944", "Take shelter.")
+
+        self.assertNotIn("content_variables", captured)
+
     def test_whatsapp_falls_back_to_free_form_when_template_is_rejected(self):
         requests = []
 
