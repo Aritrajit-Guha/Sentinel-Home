@@ -1,5 +1,3 @@
-"""Placeholder for a future guidance node."""
-
 """Advise node: turn a completed risk assessment into a personalized,
 RAG-grounded safety message for one household.
 
@@ -18,9 +16,7 @@ has produced an assessment for a household/earthquake pair.
 
 from __future__ import annotations
 
-from agent.prompts.guidance_prompt import build_guidance_prompt, build_retrieval_query
-from agent.rag.retriever import build_context, retrieve_guidance
-from agent.tools.llm_client import generate_guidance_text
+from agent.graph.state import SentinelState, append_error
 
 
 NO_GUIDANCE_FOUND = "No relevant safety guidance was found."
@@ -54,6 +50,10 @@ def generate_advice_for_household(
 
     if not isinstance(household, dict) or not isinstance(earthquake, dict) or not isinstance(assessment, dict):
         raise TypeError("household, earthquake, and assessment must all be dicts")
+
+    from agent.prompts.guidance_prompt import build_guidance_prompt, build_retrieval_query
+    from agent.rag.retriever import build_context, retrieve_guidance
+    from agent.tools.llm_client import generate_guidance_text
 
     query = build_retrieval_query(earthquake, assessment)
     documents = retrieve_guidance(query, hazard=hazard, k=k)
@@ -90,3 +90,19 @@ def generate_advice_for_household(
         "query": query,
         "grounded": True,
     }
+
+
+def advise_node(state: SentinelState) -> SentinelState:
+    """LangGraph adapter around the existing RAG-grounded advice service."""
+
+    household = state.get("household")
+    earthquake = state.get("earthquake")
+    assessment = state.get("assessment")
+    if not all(isinstance(value, dict) for value in (household, earthquake, assessment)):
+        return append_error(state, "household, earthquake, and assessment are required for advice")
+
+    try:
+        advice = generate_advice_for_household(household, earthquake, assessment)
+    except Exception as exc:
+        return append_error(state, f"advice generation failed: {exc}")
+    return {**state, "advice": advice}

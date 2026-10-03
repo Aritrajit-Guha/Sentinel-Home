@@ -79,8 +79,6 @@ import os
 from functools import lru_cache
 
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-
 from agent.validation.model_input_validator import EarthquakeModelParameters
 
 
@@ -92,8 +90,15 @@ class LLMConfigurationError(RuntimeError):
 
 
 @lru_cache(maxsize=1)
-def get_llm() -> ChatGoogleGenerativeAI:
+def get_llm():
     """Create and cache one Gemini client instance."""
+
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+    except ImportError as exc:
+        raise LLMConfigurationError(
+            "langchain-google-genai is required for Gemini integration"
+        ) from exc
 
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:

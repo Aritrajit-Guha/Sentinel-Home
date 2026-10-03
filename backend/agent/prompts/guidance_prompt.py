@@ -1,98 +1,70 @@
-"""Placeholder for future prompt experiments."""
-
-"""Gemini LLM client for SentinelHome model-parameter generation."""
+"""Prompts for retrieving and generating grounded disaster guidance."""
 
 from __future__ import annotations
 
-import os
-from functools import lru_cache
-
-from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-from agent.validation.model_input_validator import EarthquakeModelParameters
+import json
 
 
-load_dotenv(override=True)
-
-
-class LLMConfigurationError(RuntimeError):
-    """Raised when the Gemini client is not configured correctly."""
-
-
-@lru_cache(maxsize=1)
-def get_llm() -> ChatGoogleGenerativeAI:
-    """Create and cache one Gemini client instance."""
-
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        raise LLMConfigurationError(
-            "GEMINI_API_KEY or GOOGLE_API_KEY is missing"
-        )
-
-    model_name = os.getenv("LLM_MODEL", "gemini-2.5-flash")
-    return ChatGoogleGenerativeAI(
-        model=model_name,
-        google_api_key=api_key,
-        temperature=0,
-        max_retries=2,
-        timeout=60,
+def build_retrieval_query(earthquake: dict, assessment: dict) -> str:
+    return (
+        "Official earthquake safety guidance for a household near "
+        f"{earthquake.get('place', 'the affected area')}. "
+        f"Magnitude {earthquake.get('magnitude')}, MMI {earthquake.get('mmi')}, "
+        f"distance {earthquake.get('distance_km')} km, "
+        f"predicted damage grade {assessment.get('damage_grade')}, "
+        f"urgency level {assessment.get('urgency_level')}."
     )
 
 
-@lru_cache(maxsize=1)
-def get_structured_llm():
-    """Return Gemini configured for the earthquake parameter schema."""
+def build_guidance_prompt(
+    household: dict,
+    earthquake: dict,
+    assessment: dict,
+    context: str,
+) -> str:
+    """Build a concise, source-grounded emergency instruction prompt."""
 
-    return get_llm().with_structured_output(
-        EarthquakeModelParameters,
-        method="json_schema",
-    )
+    household_context = {
+        "household_size": household.get("household_size"),
+        "vulnerable_members": household.get("vulnerable_members", []),
+        "location": household.get("location"),
+    }
+    hazard_context = {
+        "place": earthquake.get("place"),
+        "magnitude": earthquake.get("magnitude"),
+        "mmi": earthquake.get("mmi"),
+        "distance_km": earthquake.get("distance_km"),
+    }
+    risk_context = {
+        "damage_grade": assessment.get("damage_grade"),
+        "physical_damage_risk": assessment.get("physical_damage_risk"),
+        "urgency_score": assessment.get("urgency_score"),
+        "urgency_level": assessment.get("urgency_level"),
+    }
+    return f"""
+You are SentinelHome's emergency safety-message generator.
 
+Write one concise, calm, actionable household instruction using only the
+official retrieved guidance below and the supplied structured facts.
 
-def generate_model_parameters(prompt: str) -> dict:
-    """Generate structured earthquake-model parameters from a prompt."""
+Rules:
+- Do not invent shelters, routes, medical advice, timings, or hazard facts.
+- Do not change the supplied risk or urgency values.
+- Do not mention internal model implementation details.
+- Prioritize immediate safety and assistance for vulnerable members.
+- If the guidance does not support a specific recommendation, say to follow
+  local authority instructions.
+- Return plain text only, at most 500 characters.
 
-    if not isinstance(prompt, str) or not prompt.strip():
-        raise ValueError("prompt must be a non-empty string")
+Household:
+{json.dumps(household_context, ensure_ascii=False, indent=2)}
 
-    try:
-        result = get_structured_llm().invoke(prompt)
-    except Exception as exc:
-        raise RuntimeError(
-            f"Gemini parameter generation failed: {exc}"
-        ) from exc
+Earthquake:
+{json.dumps(hazard_context, ensure_ascii=False, indent=2)}
 
-    if isinstance(result, EarthquakeModelParameters):
-        return result.model_dump()
-    if isinstance(result, dict):
-        return result
+Assessment:
+{json.dumps(risk_context, ensure_ascii=False, indent=2)}
 
-    raise RuntimeError(
-        "Gemini returned an unexpected structured-output type"
-    )
-
-
-def generate_guidance_text(prompt: str) -> str:
-    """Generate a plain-text safety message from a grounded guidance prompt.
-
-    Unlike generate_model_parameters, this has no schema to enforce -- the
-    grounding constraint (only use the retrieved context) lives in the
-    prompt itself, built by guidance_prompt.build_guidance_prompt.
-    """
-
-    if not isinstance(prompt, str) or not prompt.strip():
-        raise ValueError("prompt must be a non-empty string")
-
-    try:
-        result = get_llm().invoke(prompt)
-    except Exception as exc:
-        raise RuntimeError(
-            f"Gemini guidance generation failed: {exc}"
-        ) from exc
-
-    text = getattr(result, "content", result)
-    if not isinstance(text, str) or not text.strip():
-        raise RuntimeError("Gemini returned an empty guidance message")
-
-    return text.strip()
+Official retrieved guidance:
+{context}
+""".strip()
