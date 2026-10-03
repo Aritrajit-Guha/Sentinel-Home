@@ -67,6 +67,19 @@ export default function Dashboard() {
             <div key={alert.id}>
               <p><strong>{alert.hazard}</strong>: {alert.message}</p>
               <p><strong>Delivery:</strong> {alert.delivery_status || 'pending'} ({alert.delivery_channel || 'not sent'})</p>
+              {alert.delivery_error && <p style={{ color: '#8a5a00' }}>
+                The alert was recorded, but notification delivery failed: verify the recipient number and provider configuration.
+              </p>}
+              {alert.deliveries?.length > 0 && (
+                <details>
+                  <summary>Delivery details</summary>
+                  <ul>{alert.deliveries.map((delivery, index) => (
+                    <li key={`${delivery.recipient_id || 'recipient'}-${index}`}>
+                      {delivery.channel}: {delivery.name || delivery.phone} — {delivery.status}
+                    </li>
+                  ))}</ul>
+                </details>
+              )}
               {alert.sources?.length > 0 && (
                 <details>
                   <summary>Guidance sources</summary>

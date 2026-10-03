@@ -58,11 +58,20 @@ export default function Simulation() {
               </>}
               {household.advice && <>
                 <h4>Safety instructions</h4>
+                {household.advice.degraded && <p style={{ color: '#8a5a00' }}>
+                  Guidance generation is temporarily unavailable. A conservative fallback message is shown; follow local-authority instructions.
+                </p>}
                 <p>{household.advice.message}</p>
                 <h4>Sources</h4>
                 <ul>{(household.advice.sources || []).map((source, index) => <li key={index}>{source.source || source.title || 'Guidance source'}{source.page ? `, page ${source.page}` : ''}</li>)}</ul>
               </>}
-              {household.alert && <Link to={`/dashboard/${household.household_id}`}>Open household dashboard</Link>}
+              {household.alert && <>
+                <p><strong>Alert:</strong> {household.alert.status} — delivery {household.alert.delivery_status || 'pending'}</p>
+                {household.alert.delivery_error && <p style={{ color: '#8a5a00' }}>
+                  Delivery issue: the alert was saved, but the provider reported an error. Verify the recipient number in Twilio.
+                </p>}
+                <Link to={`/dashboard/${household.household_id}`}>Open household dashboard</Link>
+              </>}
             </article>
           ))}
         </section>
