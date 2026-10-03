@@ -17,6 +17,48 @@ def _record_delivery(alert: dict, record: dict) -> list[dict]:
     return deliveries
 
 
+def _single_line(value: object, limit: int = 1200) -> str:
+    """Make generated guidance safe for a WhatsApp template variable."""
+
+    text = " ".join(str(value or "").split())
+    return text[:limit].rstrip()
+
+
+def _whatsapp_alert_body(alert: dict) -> str:
+    """Flatten the complete alert for a one-variable WhatsApp template.
+
+    WhatsApp template variables cannot contain line breaks.  The fixed text
+    around ``{{1}}`` belongs to the approved template; this value carries the
+    actual RAG/LLM advice and its audit sources.
+    """
+
+    score = alert.get("risk_score")
+    score_text = f"{float(score):.3f}" if score is not None else "unknown"
+    sources = alert.get("sources") or []
+    source_text = "; ".join(
+        f"{item.get('source', 'unknown source')} page {item.get('page', 'unknown')}"
+        for item in sources if isinstance(item, dict)
+    ) or "Follow local authority guidance"
+    return _single_line(
+        f"Risk {alert.get('risk_level', 'unknown')} ({score_text}). "
+        f"Safety guidance: {alert.get('message', '')}. "
+        f"Sources: {source_text}"
+    )
+
+
+def _whatsapp_template_variables(alert: dict) -> dict[str, str]:
+    """Build variables for the configured approved Sandbox template."""
+
+    variables = {"1": _whatsapp_alert_body(alert)}
+    # The currently approved Sandbox appointment template has a second
+    # placeholder. Keep it meaningful instead of allowing Twilio to render
+    # its sample value. A future safety-specific template can use the same
+    # variable contract or configure a single placeholder.
+    if settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLE_COUNT >= 2:
+        variables["2"] = "SentinelHome earthquake safety alert"
+    return variables
+
+
 def send_alert_whatsapp(household_id: str, alert: dict) -> dict:
     household = households.get(household_id)
     if household is None:
@@ -31,7 +73,10 @@ def send_alert_whatsapp(household_id: str, alert: dict) -> dict:
         if channel == "sms":
             message = notification_service.send_sms(contact["phone"], alert["message"])
         else:
-            message = notification_service.send_whatsapp(contact["phone"], alert["message"])
+            message = notification_service.send_whatsapp(
+                contact["phone"], alert["message"],
+                template_variables=_whatsapp_template_variables(alert),
+            )
     except Exception as exc:
         failed = {
             "recipient_id": contact.get("id", "primary"), "name": contact.get("name"),

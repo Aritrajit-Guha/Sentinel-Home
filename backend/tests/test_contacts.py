@@ -62,7 +62,10 @@ class ContactWorkflowTests(unittest.TestCase):
              patch("app.services.delivery_service.settings.TWILIO_WHATSAPP_FROM", "whatsapp:+14155552671"), \
              patch("app.services.delivery_service.notification_service.send_whatsapp", return_value=fake_message) as send:
             process_pending_alerts()
-        send.assert_called_once_with("+910000000001", "Move now.")
+        send.assert_called_once_with(
+            "+910000000001", "Move now.",
+            template_variables={"1": "Risk high (0.900). Safety guidance: Move now.. Sources: Follow local authority guidance"},
+        )
         stored_alert = alerts["contacts"][0]
         self.assertEqual(stored_alert["deliveries"][0]["channel"], "whatsapp")
         self.assertEqual(len(stored_alert["deliveries"]), 1)

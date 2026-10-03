@@ -42,7 +42,7 @@ def send_sms(to: str, body: str):
     return _client().messages.create(body=body, from_=_from_number(), to=_e164(to))
 
 
-def send_whatsapp(to: str, body: str):
+def send_whatsapp(to: str, body: str, *, template_variables: dict[str, str] | None = None):
     if not to or not body:
         raise ValueError("WhatsApp recipient and body are required")
     if not settings.TWILIO_WHATSAPP_FROM:
@@ -55,9 +55,9 @@ def send_whatsapp(to: str, body: str):
     content_sid = settings.TWILIO_WHATSAPP_CONTENT_SID.strip()
     if content_sid:
         payload["content_sid"] = content_sid
-        variables = {"1": body}
+        variables = template_variables or {"1": body}
         variable_count = settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLE_COUNT
-        if variable_count >= 2:
+        if template_variables is None and variable_count >= 2:
             variables["2"] = datetime.now(timezone.utc).strftime("%H:%M UTC")
         if variable_count > 0:
             payload["content_variables"] = json.dumps(variables)
