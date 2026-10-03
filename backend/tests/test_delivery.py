@@ -141,3 +141,28 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(message.sid, "MM-fallback")
         self.assertEqual(requests[-1]["body"], "Take shelter.")
         self.assertNotIn("content_sid", requests[-1])
+
+    def test_telegram_sends_full_message(self):
+        response = type(
+            "Response", (), {
+                "json": lambda self: {"ok": True, "result": {"message_id": 42}},
+                "raise_for_status": lambda self: None,
+            }
+        )()
+        with patch.object(notification_service.settings, "TELEGRAM_BOT_TOKEN", "bot-token"), \
+             patch.object(notification_service.settings, "TELEGRAM_API_BASE_URL", "https://telegram.test"), \
+             patch.object(notification_service.requests, "post", return_value=response) as post:
+            message = notification_service.send_telegram(
+                "12345", "SentinelHome safety guidance"
+            )
+
+        self.assertEqual(message.sid, "42")
+        post.assert_called_once_with(
+            "https://telegram.test/botbot-token/sendMessage",
+            json={
+                "chat_id": "12345",
+                "text": "SentinelHome safety guidance",
+                "disable_web_page_preview": True,
+            },
+            timeout=15,
+        )

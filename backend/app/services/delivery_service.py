@@ -59,18 +59,48 @@ def _whatsapp_template_variables(alert: dict) -> dict[str, str]:
     return variables
 
 
+def _telegram_alert_body(alert: dict) -> str:
+    """Render the complete generated alert for Telegram."""
+
+    score = alert.get("risk_score")
+    score_text = f"{float(score):.3f}" if score is not None else "unknown"
+    lines = [
+        "🚨 SentinelHome earthquake alert",
+        f"Risk: {alert.get('risk_level', 'unknown')} ({score_text})",
+        "",
+        "Safety guidance:",
+        str(alert.get("message", "")).strip(),
+    ]
+    sources = alert.get("sources") or []
+    if sources:
+        lines.extend(["", "Sources:"])
+        lines.extend(
+            f"- {item.get('source', 'unknown source')}, page {item.get('page', 'unknown')}"
+            for item in sources if isinstance(item, dict)
+        )
+    return "\n".join(lines)[:4096]
+
+
 def send_alert_whatsapp(household_id: str, alert: dict) -> dict:
     household = households.get(household_id)
     if household is None:
         raise KeyError("Household not found")
+    telegram_enabled = bool(settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_CHAT_ID)
     contact = primary_contact(household)
-    if not contact:
-        raise ValueError("A primary contact is required for WhatsApp delivery")
+    if not telegram_enabled and not contact:
+        raise ValueError("A primary contact is required for notification delivery")
     legacy_only = "primary_contact" not in household
     now = datetime.now(timezone.utc).isoformat()
-    channel = "sms" if legacy_only and not settings.TWILIO_WHATSAPP_FROM else "whatsapp"
+    channel = (
+        "telegram" if telegram_enabled
+        else ("sms" if legacy_only and not settings.TWILIO_WHATSAPP_FROM else "whatsapp")
+    )
     try:
-        if channel == "sms":
+        if channel == "telegram":
+            message = notification_service.send_telegram(
+                settings.TELEGRAM_CHAT_ID, _telegram_alert_body(alert)
+            )
+        elif channel == "sms":
             message = notification_service.send_sms(contact["phone"], alert["message"])
         else:
             message = notification_service.send_whatsapp(
@@ -79,8 +109,10 @@ def send_alert_whatsapp(household_id: str, alert: dict) -> dict:
             )
     except Exception as exc:
         failed = {
-            "recipient_id": contact.get("id", "primary"), "name": contact.get("name"),
-            "phone": contact.get("phone"), "channel": channel, "status": "failed",
+            "recipient_id": "telegram" if channel == "telegram" else contact.get("id", "primary"),
+            "name": "Telegram user" if channel == "telegram" else contact.get("name"),
+            "phone": settings.TELEGRAM_CHAT_ID if channel == "telegram" else contact.get("phone"),
+            "channel": channel, "status": "failed",
             "error": str(exc), "sent_at": now,
         }
         update_alert(
@@ -90,8 +122,10 @@ def send_alert_whatsapp(household_id: str, alert: dict) -> dict:
         )
         raise
     record = {
-        "recipient_id": contact.get("id", "primary"), "name": contact.get("name"),
-        "phone": contact.get("phone"), "channel": channel, "status": "sent",
+        "recipient_id": "telegram" if channel == "telegram" else contact.get("id", "primary"),
+        "name": "Telegram user" if channel == "telegram" else contact.get("name"),
+        "phone": settings.TELEGRAM_CHAT_ID if channel == "telegram" else contact.get("phone"),
+        "channel": channel, "status": "sent",
         "provider_id": getattr(message, "sid", None), "sent_at": now,
     }
     return update_alert(

@@ -4,6 +4,7 @@ import re
 import json
 from datetime import datetime, timezone
 
+import requests
 from twilio.rest import Client
 from app.core.config import settings
 
@@ -82,6 +83,33 @@ def send_whatsapp(to: str, body: str, *, template_variables: dict[str, str] | No
             return _client().messages.create(**fallback)
     payload["body"] = body
     return _client().messages.create(**payload)
+
+
+def send_telegram(chat_id: str, body: str):
+    """Send a full, untemplated alert through the Telegram Bot API."""
+
+    if not settings.TELEGRAM_BOT_TOKEN:
+        raise NotificationConfigurationError("TELEGRAM_BOT_TOKEN is not configured")
+    if not chat_id or not body:
+        raise ValueError("Telegram chat ID and body are required")
+    response = requests.post(
+        f"{settings.TELEGRAM_API_BASE_URL}/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage",
+        json={
+            "chat_id": str(chat_id),
+            "text": body[:4096],
+            "disable_web_page_preview": True,
+        },
+        timeout=15,
+    )
+    response.raise_for_status()
+    result = response.json()
+    if not result.get("ok") or not isinstance(result.get("result"), dict):
+        raise RuntimeError(result.get("description", "Telegram rejected the message"))
+    message_id = result["result"].get("message_id")
+    return type("TelegramMessage", (), {
+        "sid": str(message_id) if message_id is not None else None,
+        "message_id": message_id,
+    })()
 
 
 def make_call(to: str, twiml_url: str):

@@ -26,6 +26,11 @@ class Settings:
     TWILIO_WHATSAPP_TEMPLATE_VARIABLE_COUNT = int(
         os.getenv("TWILIO_WHATSAPP_TEMPLATE_VARIABLE_COUNT", "0")
     )
+    TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+    TELEGRAM_API_BASE_URL = os.getenv(
+        "TELEGRAM_API_BASE_URL", "https://api.telegram.org"
+    ).rstrip("/")
     TWILIO_VOICE_URL = os.getenv("TWILIO_VOICE_URL", "")
     PUBLIC_BACKEND_URL = os.getenv("PUBLIC_BACKEND_URL", "").rstrip("/")
     AUTO_SEND_ALERTS = os.getenv("AUTO_SEND_ALERTS", "false").lower() == "true"

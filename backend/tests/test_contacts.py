@@ -70,6 +70,27 @@ class ContactWorkflowTests(unittest.TestCase):
         self.assertEqual(stored_alert["deliveries"][0]["channel"], "whatsapp")
         self.assertEqual(len(stored_alert["deliveries"]), 1)
 
+    def test_initial_alert_uses_telegram_when_configured(self):
+        households["telegram-contacts"] = {
+            "id": "telegram-contacts", "safe": False,
+            "primary_contact": {"id": "primary", "name": "User", "phone": "+910000000001"},
+        }
+        alert = create_alert(
+            "telegram-contacts", hazard="earthquake", risk_score=0.9,
+            message="Move away from windows.",
+        )
+        fake_message = type("Message", (), {"sid": "42"})()
+        with patch("app.services.delivery_service.settings.AUTO_SEND_ALERTS", True), \
+             patch("app.services.delivery_service.settings.TELEGRAM_BOT_TOKEN", "bot-token"), \
+             patch("app.services.delivery_service.settings.TELEGRAM_CHAT_ID", "12345"), \
+             patch("app.services.delivery_service.notification_service.send_telegram", return_value=fake_message) as send:
+            process_pending_alerts()
+
+        send.assert_called_once()
+        stored_alert = alerts["telegram-contacts"][0]
+        self.assertEqual(stored_alert["delivery_channel"], "telegram")
+        self.assertEqual(stored_alert["deliveries"][0]["provider_id"], "42")
+
     def test_escalation_calls_enabled_relatives_once(self):
         households["contacts"] = {
             "id": "contacts", "safe": False,
@@ -91,4 +112,3 @@ class ContactWorkflowTests(unittest.TestCase):
             process_pending_alerts()
         call.assert_called_once_with("+910000000002", "https://example.test/voice")
         self.assertEqual(alerts["contacts"][0]["escalation_reason"], "calls_initiated")
-
