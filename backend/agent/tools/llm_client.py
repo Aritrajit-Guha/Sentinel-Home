@@ -168,8 +168,29 @@ def generate_guidance_text(prompt: str) -> str:
             f"Gemini guidance generation failed: {exc}"
         ) from exc
 
-    text = getattr(result, "content", result)
-    if not isinstance(text, str) or not text.strip():
-        raise RuntimeError("Gemini returned an empty guidance message")
+    content = getattr(result, "content", result)
+    if isinstance(content, str):
+        text = content
+    elif isinstance(content, list):
+        # Newer langchain-google-genai versions may return multimodal content
+        # blocks instead of one string, even for a text-only prompt.
+        parts = []
+        for block in content:
+            if isinstance(block, dict):
+                value = block.get("text") or block.get("content")
+            else:
+                value = getattr(block, "text", None)
+            if isinstance(value, str):
+                parts.append(value)
+        text = "\n".join(parts)
+    else:
+        text = str(content or "")
+    if not text.strip():
+        metadata = getattr(result, "response_metadata", {}) or {}
+        finish_reason = metadata.get("finish_reason") or metadata.get("finishReason")
+        raise RuntimeError(
+            "Gemini returned no text"
+            + (f" (finish_reason={finish_reason})" if finish_reason else "")
+        )
 
     return text.strip()
