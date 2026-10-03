@@ -1,6 +1,7 @@
 """Tests for automatic alert delivery and timeout escalation."""
 
 from datetime import datetime, timedelta, timezone
+import json
 import unittest
 from unittest.mock import patch
 
@@ -81,6 +82,25 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(captured["from_"], "whatsapp:+17372508034")
         self.assertEqual(captured["content_sid"], "HX-template")
         self.assertEqual(captured["content_variables"], '{"1": "Take shelter."}')
+
+    def test_whatsapp_can_send_two_template_variables(self):
+        captured = {}
+
+        class Messages:
+            def create(self, **kwargs):
+                captured.update(kwargs)
+                return type("Message", (), {"sid": "MM-template"})()
+
+        fake_client = type("Client", (), {"messages": Messages()})()
+        with patch.object(notification_service, "_client", return_value=fake_client), \
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_FROM", "+17372508034"), \
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_CONTENT_SID", "HX-template"), \
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_TEMPLATE_VARIABLE_COUNT", 2):
+            notification_service.send_whatsapp("+918250316944", "Take shelter.")
+
+        variables = json.loads(captured["content_variables"])
+        self.assertEqual(variables["1"], "Take shelter.")
+        self.assertRegex(variables["2"], r"^\d{2}:\d{2} UTC$")
 
     def test_whatsapp_falls_back_to_free_form_when_template_is_rejected(self):
         requests = []

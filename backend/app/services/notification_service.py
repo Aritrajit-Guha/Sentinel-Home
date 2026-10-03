@@ -2,6 +2,7 @@
 
 import re
 import json
+from datetime import datetime, timezone
 
 from twilio.rest import Client
 from app.core.config import settings
@@ -54,7 +55,10 @@ def send_whatsapp(to: str, body: str):
     content_sid = settings.TWILIO_WHATSAPP_CONTENT_SID.strip()
     if content_sid:
         payload["content_sid"] = content_sid
-        payload["content_variables"] = json.dumps({"1": body})
+        variables = {"1": body}
+        if settings.TWILIO_WHATSAPP_TEMPLATE_VARIABLE_COUNT >= 2:
+            variables["2"] = datetime.now(timezone.utc).strftime("%H:%M UTC")
+        payload["content_variables"] = json.dumps(variables)
         try:
             return _client().messages.create(**payload)
         except Exception as exc:
