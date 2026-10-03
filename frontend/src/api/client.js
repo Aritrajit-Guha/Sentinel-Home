@@ -50,9 +50,13 @@ export function confirmSafe(householdId) {
   return request(`/api/alerts/${householdId}/confirm-safe`, { method: "POST" });
 }
 
-export function simulateEarthquake(password) {
+export function startEarthquakeSimulation(password) {
   return request("/api/admin/simulation/earthquake", {
     method: "POST",
     body: JSON.stringify({ password }),
   });
+}
+
+export function getEarthquakeSimulation(jobId) {
+  return request(`/api/admin/simulation/earthquake/${jobId}`);
 }

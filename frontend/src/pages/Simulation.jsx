@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { simulateEarthquake } from '../api/client'
+import { getEarthquakeSimulation, startEarthquakeSimulation } from '../api/client'
 
 export default function Simulation() {
   const [password, setPassword] = useState('')
@@ -14,7 +14,14 @@ export default function Simulation() {
     setError(null)
     setResult(null)
     try {
-      setResult(await simulateEarthquake(password))
+      const accepted = await startEarthquakeSimulation(password)
+      let job = accepted
+      while (job.status === 'queued' || job.status === 'running') {
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+        job = await getEarthquakeSimulation(accepted.job_id)
+      }
+      if (job.status === 'failed') throw new Error(job.error || 'Simulation failed')
+      setResult({ ...job, ...job.result })
       setPassword('')
     } catch (err) {
       setError(err.message)

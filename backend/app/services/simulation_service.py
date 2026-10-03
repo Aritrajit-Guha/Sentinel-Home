@@ -1,0 +1,77 @@
+"""Asynchronous controlled-earthquake jobs for end-to-end demonstrations."""
+
+from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from threading import Lock
+from uuid import uuid4
+
+from app.services.monitoring_service import run_monitoring_cycle
+
+
+_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sentinel-simulation")
+_jobs: dict[str, dict] = {}
+_lock = Lock()
+
+
+def _fixture(event_id: str) -> dict:
+    return {
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "id": event_id,
+            "properties": {
+                "mag": 5.0,
+                "mmi": 6.9,
+                "place": "SentinelHome controlled earthquake simulation",
+                "time": 1772178748744,
+                "url": None,
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [87.31192, 23.520445, 20.0],
+            },
+        }],
+    }
+
+
+def _run(job_id: str, event_id: str) -> None:
+    with _lock:
+        _jobs[job_id]["status"] = "running"
+        _jobs[job_id]["started_at"] = datetime.now(timezone.utc).isoformat()
+    try:
+        result = run_monitoring_cycle(earthquake_data=_fixture(event_id))
+        with _lock:
+            _jobs[job_id].update({
+                "status": "completed",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "result": result,
+            })
+    except Exception as exc:
+        with _lock:
+            _jobs[job_id].update({
+                "status": "failed",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "error": str(exc),
+            })
+
+
+def start_simulation() -> dict:
+    job_id = str(uuid4())
+    event_id = f"sentinelhome-simulation-{uuid4()}"
+    with _lock:
+        _jobs[job_id] = {
+            "job_id": job_id,
+            "simulation_event_id": event_id,
+            "status": "queued",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    _executor.submit(_run, job_id, event_id)
+    return get_simulation(job_id)
+
+
+def get_simulation(job_id: str) -> dict | None:
+    with _lock:
+        job = _jobs.get(job_id)
+        return dict(job) if job else None

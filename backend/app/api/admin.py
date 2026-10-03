@@ -1,5 +1,4 @@
 from flask import Blueprint, jsonify, request
-from uuid import uuid4
 
 from app.core.store import alerts, households
 from app.services.hazard_fetcher import fetch_earthquake_data, fetch_weather_data
@@ -7,6 +6,7 @@ from app.services.monitoring_service import run_monitoring_cycle
 from app.scheduling.scheduler import scheduler_status, start_scheduler, stop_scheduler
 from app.services.delivery_service import process_pending_alerts
 from app.core.config import settings
+from app.services.simulation_service import get_simulation, start_simulation
 
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
@@ -14,35 +14,23 @@ admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
 @admin_bp.post("/simulation/earthquake")
 def simulate_earthquake():
-    """Run the real monitoring workflow with a controlled earthquake fixture."""
+    """Start the real monitoring workflow with a controlled earthquake fixture."""
     payload = request.get_json(silent=True) or {}
     if not settings.simulation_password_matches(payload.get("password")):
         return jsonify({"status": "error", "message": "Invalid simulation password"}), 401
 
-    event_id = f"sentinelhome-simulation-{uuid4()}"
-    fixture = {
-        "type": "FeatureCollection",
-        "features": [{
-            "type": "Feature",
-            "id": event_id,
-            "properties": {
-                "mag": 5.0,
-                "mmi": 6.9,
-                "place": "SentinelHome controlled earthquake simulation",
-                "time": 1772178748744,
-                "url": None,
-            },
-            "geometry": {
-                "type": "Point",
-                "coordinates": [87.31192, 23.520445, 20.0],
-            },
-        }],
-    }
-    try:
-        result = run_monitoring_cycle(earthquake_data=fixture)
-        return jsonify({"status": "completed", "simulation_event_id": event_id, **result})
-    except Exception as exc:
-        return jsonify({"status": "error", "message": str(exc)}), 502
+    job = start_simulation()
+    return jsonify({"status": "accepted", **job}), 202
+
+
+@admin_bp.get("/simulation/earthquake/<job_id>")
+def simulation_status(job_id):
+    job = get_simulation(job_id)
+    if job is None:
+        return jsonify({"status": "error", "message": "Simulation job not found"}), 404
+    if job.get("status") == "failed":
+        return jsonify(job), 502
+    return jsonify(job)
 
 
 @admin_bp.get("/status")
