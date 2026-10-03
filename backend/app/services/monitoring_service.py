@@ -79,7 +79,11 @@ def run_monitoring_cycle(earthquake_data: dict | None = None) -> dict:
                 # (create_alert marks it unsafe). Do not overwrite that state
                 # with the stale object captured before the workflow ran.
                 workflow_household = workflow.get("household") or {}
-                if workflow_household.get("safe") is False:
+                workflow_alert = workflow.get("alert") or {}
+                if (
+                    workflow_household.get("safe") is False
+                    or workflow_alert.get("status") in {"active", "escalation_pending"}
+                ):
                     household["safe"] = False
 
         households[household["id"]] = household
