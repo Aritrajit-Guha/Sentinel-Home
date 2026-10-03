@@ -18,6 +18,7 @@ def create_alert(
     message: str,
     sources: list[dict] | None = None,
     event_id: str | None = None,
+    simulation: bool = False,
 ) -> dict:
     household = households.get(household_id)
     if household is None:
@@ -58,6 +59,7 @@ def create_alert(
         "created_at": now,
         "confirmed_at": None,
         "event_id": event_id,
+        "simulation": bool(simulation),
         "delivery_status": "pending",
         "delivery_channel": None,
         "deliveries": [],
@@ -67,15 +69,16 @@ def create_alert(
     household_alerts = alerts.setdefault(household_id, [])
     household_alerts.insert(0, alert)
     alerts[household_id] = household_alerts
-    household.update({
-        "safe": False,
-        "risk_score": numeric_score,
-        "risk_level": risk_level,
-        "last_hazard": hazard,
-        "last_hazard_at": now,
-        "updated_at": now,
-    })
-    households[household_id] = household
+    if not simulation:
+        household.update({
+            "safe": False,
+            "risk_score": numeric_score,
+            "risk_level": risk_level,
+            "last_hazard": hazard,
+            "last_hazard_at": now,
+            "updated_at": now,
+        })
+        households[household_id] = household
     return alert
 
 
@@ -102,7 +105,12 @@ def risk_level_for(risk_score: float | None) -> str:
 
 
 def get_household_alerts(household_id: str) -> list[dict]:
-    return alerts.get(household_id, [])
+    return [alert for alert in alerts.get(household_id, []) if not is_simulation_alert(alert)]
+
+
+def is_simulation_alert(alert: dict) -> bool:
+    """Identify both new and legacy controlled-simulation alerts."""
+    return bool(alert.get("simulation") or str(alert.get("event_id", "")).startswith("sentinelhome-simulation-"))
 
 
 def get_alert(household_id: str, alert_id: str) -> dict | None:

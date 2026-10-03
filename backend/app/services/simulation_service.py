@@ -62,6 +62,7 @@ def _run(job_id: str, event_id: str) -> None:
         result = run_monitoring_cycle(
             earthquake_data=_fixture(event_id),
             event_callback=record_event,
+            simulation=True,
         )
         with _lock:
             _jobs[job_id].update({

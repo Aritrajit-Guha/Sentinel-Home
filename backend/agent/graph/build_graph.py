@@ -55,7 +55,7 @@ def build_graph():
     return graph.compile()
 
 
-def run_agent_workflow(household: dict, earthquake: dict, event_callback=None) -> SentinelState:
+def run_agent_workflow(household: dict, earthquake: dict, event_callback=None, simulation: bool = False) -> SentinelState:
     return build_graph().invoke({
         "household": household,
         "earthquake": earthquake,
@@ -63,4 +63,5 @@ def run_agent_workflow(household: dict, earthquake: dict, event_callback=None) -
         "completed": False,
         "trace": [],
         "_trace_callback": event_callback,
+        "simulation": simulation,
     })

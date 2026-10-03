@@ -18,6 +18,7 @@ class SentinelState(TypedDict, total=False):
     errors: list[str]
     trace: list[dict[str, Any]]
     _trace_callback: Any
+    simulation: bool
 
 
 def trace_event(

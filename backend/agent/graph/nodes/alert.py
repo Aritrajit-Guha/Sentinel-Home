@@ -20,6 +20,7 @@ def alert_node(state: SentinelState) -> SentinelState:
             risk_score=assessment["urgency_score"],
             message=advice["message"], sources=advice.get("sources", []),
             event_id=state.get("earthquake", {}).get("id"),
+            simulation=bool(state.get("simulation")),
         )
     except Exception as exc:
         return append_error(state, f"alert creation failed: {exc}")

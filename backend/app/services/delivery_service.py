@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.store import alerts, households
 from app.services import notification_service
 from app.services.alert_service import update_alert
+from app.services.alert_service import is_simulation_alert
 from app.services.contact_service import escalation_contacts, primary_contact
 
 
@@ -211,6 +212,8 @@ def process_pending_alerts() -> dict:
         if household is None:
             continue
         for alert in household_alerts:
+            if is_simulation_alert(alert):
+                continue
             if alert.get("status") != "active":
                 continue
             processed += 1

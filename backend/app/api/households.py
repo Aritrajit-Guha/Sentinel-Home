@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from app.core.store import alerts, households
 from app.models.household import validate_household
-from app.services.alert_service import risk_level_for
+from app.services.alert_service import is_simulation_alert, risk_level_for
 from app.services.geocoding_service import geocode
 from app.services.hazard_fetcher import fetch_weather_data, nearby_earthquakes
 from app.services.contact_service import prepare_contacts
@@ -105,8 +105,29 @@ def get_household_status(household_id):
     if household is None:
         return jsonify({"status": "error", "message": "Household not found"}), 404
 
-    household_alerts = alerts.get(household_id, [])
+    # Controlled simulations are visible only in the internal simulation
+    # console; they must never change the user's production dashboard state.
+    household_alerts = [alert for alert in alerts.get(household_id, []) if not is_simulation_alert(alert)]
     active_alerts = [alert for alert in household_alerts if alert["status"] == "active"]
+    last_assessment = household.get("last_assessment")
+    if isinstance(last_assessment, dict) and is_simulation_alert({"event_id": last_assessment.get("event_id")}):
+        # Hide legacy simulation state from the production dashboard too.
+        last_assessment = None
+        production_risk_score = None
+        production_risk_level = "unknown"
+        production_last_hazard = None
+        production_last_hazard_at = None
+        production_monitored_at = None
+        production_nearby_count = 0
+        production_latest_earthquake = None
+    else:
+        production_risk_score = household.get("risk_score")
+        production_risk_level = household.get("risk_level", "unknown")
+        production_last_hazard = household.get("last_hazard")
+        production_last_hazard_at = household.get("last_hazard_at")
+        production_monitored_at = household.get("last_monitored_at")
+        production_nearby_count = household.get("nearby_earthquake_count", 0)
+        production_latest_earthquake = household.get("latest_earthquake")
     if active_alerts:
         monitoring_state = "alert_active"
     elif household["safe"]:
@@ -118,15 +139,15 @@ def get_household_status(household_id):
         "status": "ok",
         "household_id": household_id,
         "monitoring_state": monitoring_state,
-        "safe": household["safe"],
-        "risk_score": household.get("risk_score"),
-        "risk_level": household.get("risk_level", "unknown"),
-        "last_hazard": household.get("last_hazard"),
-        "last_hazard_at": household.get("last_hazard_at"),
-        "last_assessment": household.get("last_assessment"),
-        "last_monitored_at": household.get("last_monitored_at"),
-        "nearby_earthquake_count": household.get("nearby_earthquake_count", 0),
-        "latest_earthquake": household.get("latest_earthquake"),
+        "safe": True if last_assessment is None and not active_alerts else household["safe"],
+        "risk_score": production_risk_score,
+        "risk_level": production_risk_level,
+        "last_hazard": production_last_hazard,
+        "last_hazard_at": production_last_hazard_at,
+        "last_assessment": last_assessment,
+        "last_monitored_at": production_monitored_at,
+        "nearby_earthquake_count": production_nearby_count,
+        "latest_earthquake": production_latest_earthquake,
         "active_alerts": active_alerts,
         "recent_alerts": household_alerts[:5],
     })

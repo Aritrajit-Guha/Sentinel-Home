@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 import hashlib
 import json
+from copy import deepcopy
 
 from agent.graph.build_graph import run_agent_workflow
 from app.core.store import households
@@ -22,14 +23,15 @@ def _event_signature(event: dict) -> str:
     ).hexdigest()
 
 
-def run_monitoring_cycle(earthquake_data: dict | None = None, event_callback=None) -> dict:
+def run_monitoring_cycle(earthquake_data: dict | None = None, event_callback=None, simulation: bool = False) -> dict:
     """Fetch hazards once and run each new event through LangGraph."""
 
     checked_at = datetime.now(timezone.utc).isoformat()
     payload = earthquake_data if earthquake_data is not None else fetch_earthquake_data()
     results = []
 
-    for household in households.values():
+    source_households = [deepcopy(item) for item in households.values()] if simulation else households.values()
+    for household in source_households:
         events = nearby_earthquakes(
             household["latitude"],
             household["longitude"],
@@ -58,7 +60,7 @@ def run_monitoring_cycle(earthquake_data: dict | None = None, event_callback=Non
                     workflow_callback = lambda event, household_id=household["id"]: event_callback({
                         **event, "household_id": household_id,
                     })
-                workflow = run_agent_workflow(household, earthquake, workflow_callback)
+                workflow = run_agent_workflow(household, earthquake, workflow_callback, simulation=simulation)
                 assessment = workflow.get("assessment")
                 workflow_errors = list(workflow.get("errors", []))
                 if assessment:
@@ -91,7 +93,8 @@ def run_monitoring_cycle(earthquake_data: dict | None = None, event_callback=Non
                 ):
                     household["safe"] = False
 
-        households[household["id"]] = household
+        if not simulation:
+            households[household["id"]] = household
         results.append({
             "household_id": household["id"],
             "nearby_earthquake_count": len(events),

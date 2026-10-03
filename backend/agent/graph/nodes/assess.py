@@ -16,7 +16,7 @@ def assess_node(state: SentinelState) -> SentinelState:
     traced = trace_event(
         state,
         stage="parameter_generation",
-        status="running",
+        status="started",
         title="Preparing ML parameters",
         detail="Building the LLM prompt from the earthquake response and registered building facts.",
         request={"prompt": prompt},

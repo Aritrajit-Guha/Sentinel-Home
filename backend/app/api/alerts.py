@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from app.core.store import alerts, households
 from app.services import notification_service
-from app.services.alert_service import create_alert, get_alert
+from app.services.alert_service import create_alert, get_alert, is_simulation_alert
 from app.services.alert_service import update_alert
 from app.services.delivery_service import escalate_alert_voice, send_alert_whatsapp
 from app.services.contact_service import primary_contact
@@ -83,7 +83,7 @@ def confirm_safe(household_id):
 
     household_alerts = alerts.get(household_id, [])
     for alert in household_alerts:
-        if alert["status"] == "active":
+        if alert["status"] == "active" and not is_simulation_alert(alert):
             alert["status"] = "confirmed"
             alert["confirmed_at"] = household["safe_at"]
     households[household_id] = household
@@ -92,7 +92,7 @@ def confirm_safe(household_id):
     return jsonify({
         "status": "confirmed",
         "household_id": household_id,
-        "alerts": household_alerts,
+        "alerts": [alert for alert in household_alerts if not is_simulation_alert(alert)],
     })
 
 
@@ -104,7 +104,7 @@ def household_alerts(household_id):
     return jsonify({
         "status": "ok",
         "household_id": household_id,
-        "alerts": alerts.get(household_id, []),
+        "alerts": [alert for alert in alerts.get(household_id, []) if not is_simulation_alert(alert)],
     })
 
 
