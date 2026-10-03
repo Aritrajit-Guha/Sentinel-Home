@@ -73,7 +73,8 @@ class DeliveryTests(unittest.TestCase):
         fake_client = type("Client", (), {"messages": Messages()})()
         with patch.object(notification_service, "_client", return_value=fake_client), \
              patch.object(notification_service.settings, "TWILIO_WHATSAPP_FROM", "+17372508034"), \
-             patch.object(notification_service.settings, "TWILIO_WHATSAPP_CONTENT_SID", "HX-template"):
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_CONTENT_SID", "HX-template"), \
+             patch.object(notification_service.settings, "TWILIO_WHATSAPP_TEMPLATE_VARIABLE_COUNT", 1):
             notification_service.send_whatsapp(
                 "+91 82503 16944", "Take shelter."
             )
