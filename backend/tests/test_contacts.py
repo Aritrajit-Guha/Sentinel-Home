@@ -33,6 +33,25 @@ class ContactWorkflowTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("contact phone numbers must be unique", response.get_json()["errors"])
 
+    def test_simulation_requires_password(self):
+        client = app.test_client()
+        with patch("app.api.admin.settings.SIMULATION_PASSWORD", "private-test-password"):
+            response = client.post("/api/admin/simulation/earthquake", json={"password": "wrong"})
+        self.assertEqual(response.status_code, 401)
+
+    def test_simulation_uses_fixed_fixture_after_password_check(self):
+        with patch("app.api.admin.settings.SIMULATION_PASSWORD", "private-test-password"), \
+             patch("app.api.admin.run_monitoring_cycle", return_value={"households": []}) as run_cycle:
+            response = app.test_client().post(
+                "/api/admin/simulation/earthquake",
+                json={"password": "private-test-password"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["status"], "completed")
+        run_cycle.assert_called_once()
+        fixture = run_cycle.call_args.kwargs["earthquake_data"]
+        self.assertEqual(fixture["features"][0]["properties"]["mag"], 5.0)
+
     def test_initial_alert_uses_whatsapp_for_primary_only(self):
         households["contacts"] = {
             "id": "contacts", "safe": False,

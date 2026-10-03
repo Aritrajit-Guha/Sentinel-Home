@@ -49,3 +49,10 @@ export function getHouseholdAlerts(householdId) {
 export function confirmSafe(householdId) {
   return request(`/api/alerts/${householdId}/confirm-safe`, { method: "POST" });
 }
+
+export function simulateEarthquake(password) {
+  return request("/api/admin/simulation/earthquake", {
+    method: "POST",
+    body: JSON.stringify({ password }),
+  });
+}

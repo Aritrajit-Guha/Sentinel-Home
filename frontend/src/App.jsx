@@ -281,6 +281,10 @@
 
 import './App.css'
 import { ArrowRight, Globe2, ShieldCheck } from 'lucide-react'
+import { Route, Routes } from 'react-router-dom'
+import HouseholdRegistration from './pages/Householdregistration'
+import Dashboard from './pages/Dashboard'
+import Simulation from './pages/Simulation'
 
 const backgroundImage = '/assets/background-image.jpg'
 const earthImage = '/assets/earth-image.png'
@@ -509,7 +513,7 @@ export const Desktop = () => {
               <span>EN</span>
               <span className="chevron" aria-hidden="true">⌄</span>
             </button>
-            <a className="nav-cta" href="/signup">
+            <a className="nav-cta" href="/register">
               Get started
               <ArrowRight size={17} strokeWidth={2} />
             </a>
@@ -536,7 +540,7 @@ export const Desktop = () => {
           </p>
 
           <div className="hero-actions">
-            <a className="hero-cta" href="/signup">
+            <a className="hero-cta" href="/register">
               Get started free
               <ArrowRight size={19} strokeWidth={2} />
             </a>
@@ -551,4 +555,14 @@ export const Desktop = () => {
   )
 }
 
-export default Desktop
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Desktop />} />
+      <Route path="/register" element={<HouseholdRegistration />} />
+      <Route path="/dashboard/:householdId" element={<Dashboard />} />
+      <Route path="/internal/earthquake-simulation" element={<Simulation />} />
+      <Route path="*" element={<Desktop />} />
+    </Routes>
+  )
+}

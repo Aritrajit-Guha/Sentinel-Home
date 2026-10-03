@@ -66,7 +66,8 @@ class AgentWorkflowTests(unittest.TestCase):
         household = _household(safe=False)
         advice = {"message": "Move to a safer location.", "sources": [{"source": "guide.pdf", "page": 1}], "grounded": True}
         with patch("agent.graph.nodes.assess.assess_household_risk", return_value=_assessment("high")), \
-             patch("agent.graph.nodes.advise.generate_advice_for_household", return_value=advice):
+             patch("agent.graph.nodes.advise.generate_advice_for_household", return_value=advice), \
+             patch("agent.graph.nodes.alert.settings.AUTO_SEND_ALERTS", False):
             result = run_agent_workflow(household, _earthquake())
         self.assertEqual(result["alert"]["message"], advice["message"])
         self.assertEqual(result["confirmation_status"], "pending")

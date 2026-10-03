@@ -50,12 +50,29 @@ export default function Dashboard() {
         <p><strong>Safe:</strong> {status.safe ? 'Yes' : 'No — awaiting confirmation'}</p>
       </div>
 
+      {status.last_assessment && (
+        <section style={{ padding: '1rem', border: '1px solid #ddd', borderRadius: 8, marginBottom: '1rem' }}>
+          <h2>Latest assessment</h2>
+          <p><strong>Damage grade:</strong> {status.last_assessment.damage_grade ?? 'Unavailable'}</p>
+          <p><strong>Physical damage risk:</strong> {status.last_assessment.physical_damage_risk ?? 'Unavailable'}</p>
+          <p><strong>Vulnerability score:</strong> {status.last_assessment.vulnerability_score ?? 'Unavailable'}</p>
+          <p><strong>Final urgency:</strong> {status.last_assessment.urgency_score ?? 'Unavailable'} ({status.last_assessment.urgency_level ?? 'unknown'})</p>
+        </section>
+      )}
+
       {status.active_alerts.length > 0 && (
         <div style={{ padding: '1rem', border: '1px solid crimson', borderRadius: 8, marginBottom: '1rem' }}>
           <h2>Active alerts</h2>
           {status.active_alerts.map((alert) => (
             <div key={alert.id}>
               <p><strong>{alert.hazard}</strong>: {alert.message}</p>
+              <p><strong>Delivery:</strong> {alert.delivery_status || 'pending'} ({alert.delivery_channel || 'not sent'})</p>
+              {alert.sources?.length > 0 && (
+                <details>
+                  <summary>Guidance sources</summary>
+                  <ul>{alert.sources.map((source, index) => <li key={index}>{source.source || source.title || 'Guidance source'}{source.page ? `, page ${source.page}` : ''}</li>)}</ul>
+                </details>
+              )}
             </div>
           ))}
           <button onClick={handleConfirmSafe} disabled={confirming}>

@@ -1,4 +1,5 @@
 import os
+import hmac
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -32,5 +33,11 @@ class Settings:
     APP_ENV = os.getenv("APP_ENV", "development")
     ENABLE_SCHEDULER = os.getenv("ENABLE_SCHEDULER", "false").lower() == "true"
     MONITOR_INTERVAL_MINUTES = int(os.getenv("MONITOR_INTERVAL_MINUTES", "5"))
+    SIMULATION_PASSWORD = os.getenv("SIMULATION_PASSWORD", "")
+
+    def simulation_password_matches(self, candidate: str) -> bool:
+        return bool(self.SIMULATION_PASSWORD) and hmac.compare_digest(
+            str(candidate or ""), self.SIMULATION_PASSWORD
+        )
 
 settings = Settings()
