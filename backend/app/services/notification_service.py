@@ -69,7 +69,8 @@ def send_whatsapp(to: str, body: str):
                 "content api",
                 "not available on a trial account",
             )
-            if not any(item in error_text for item in template_errors):
+            status_code = getattr(exc, "status", None)
+            if status_code != 400 and not any(item in error_text for item in template_errors):
                 raise
             fallback = {"from_": sender, "to": recipient, "body": body}
             return _client().messages.create(**fallback)
