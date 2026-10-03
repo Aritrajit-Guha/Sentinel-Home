@@ -41,8 +41,15 @@ def _fallback_advice(query: str, *, sources: list[dict] | None = None, retrieved
     for auditability.
     """
 
+    message = FALLBACK_MESSAGE
+    if retrieved_guidance:
+        excerpts = [item.get("excerpt", "").strip() for item in retrieved_guidance if item.get("excerpt")]
+        if excerpts:
+            # Keep the alert useful even when Gemini is unavailable: these
+            # are verbatim excerpts from the retrieved safety documents.
+            message = "Official retrieved guidance (LLM generation unavailable):\n\n" + "\n\n".join(excerpts[:2])
     result = {
-        "message": FALLBACK_MESSAGE,
+        "message": message,
         "sources": sources or [],
         "query": query,
         "grounded": False,
