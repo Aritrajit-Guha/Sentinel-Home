@@ -8,6 +8,7 @@ from app.models.household import validate_household
 from app.services.alert_service import risk_level_for
 from app.services.geocoding_service import geocode
 from app.services.hazard_fetcher import fetch_weather_data, nearby_earthquakes
+from app.services.contact_service import prepare_contacts
 
 
 households_bp = Blueprint("households", __name__, url_prefix="/api/households")
@@ -73,7 +74,7 @@ def register_household():
     now = datetime.now(timezone.utc).isoformat()
     household = {
         "id": household_id,
-        **payload,
+        **prepare_contacts(payload),
         "latitude": float(payload["latitude"]),
         "longitude": float(payload["longitude"]),
         "household_size": int(payload["household_size"]),
@@ -260,6 +261,7 @@ def update_household(household_id):
         return jsonify({"status": "error", "errors": errors}), 400
 
     household.update(candidate)
+    household.update(prepare_contacts(candidate))
     if "latitude" in candidate:
         household["latitude"] = float(candidate["latitude"])
     if "longitude" in candidate:

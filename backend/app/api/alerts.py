@@ -5,6 +5,9 @@ from flask import Blueprint, jsonify, request
 from app.core.store import alerts, households
 from app.services import notification_service
 from app.services.alert_service import create_alert, get_alert
+from app.services.alert_service import update_alert
+from app.services.delivery_service import escalate_alert_voice, send_alert_whatsapp
+from app.services.contact_service import primary_contact
 
 
 alerts_bp = Blueprint("alerts", __name__, url_prefix="/api/alerts")
@@ -61,6 +64,7 @@ def create_household_alert(household_id):
             risk_score=payload.get("risk_score"),
             message=payload["message"].strip(),
             sources=payload.get("sources", []),
+            event_id=payload.get("event_id"),
         )
     except (TypeError, ValueError) as exc:
         return jsonify({"status": "error", "message": str(exc)}), 400
@@ -134,16 +138,21 @@ def send_alert(household_id, alert_id):
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):
         return jsonify({"status": "error", "message": "request body must be a JSON object"}), 400
-    channel = payload.get("channel", "sms")
-    if channel != "sms":
+    channel = payload.get("channel", "whatsapp")
+    if channel not in {"whatsapp", "sms"}:
         return jsonify({
             "status": "error",
-            "message": "Only sms delivery is currently supported",
+            "message": "channel must be whatsapp or sms",
         }), 400
 
     try:
+        if channel == "whatsapp":
+            return jsonify({"status": "sent", "alert": send_alert_whatsapp(household_id, alert)})
+        contact = primary_contact(household)
+        if not contact:
+            return jsonify({"status": "error", "message": "A primary contact is required"}), 400
         message = notification_service.send_sms(
-            household["emergency_contact"],
+            contact["phone"],
             alert["message"],
         )
     except notification_service.NotificationConfigurationError as exc:
@@ -182,17 +191,14 @@ def escalate_alert(household_id, alert_id):
     if not isinstance(payload, dict):
         return jsonify({"status": "error", "message": "request body must be a JSON object"}), 400
     twiml_url = payload.get("twiml_url")
-    if not isinstance(twiml_url, str) or not twiml_url.strip():
-        return jsonify({
-            "status": "error",
-            "message": "twiml_url is required for voice escalation",
-        }), 400
+    if twiml_url is not None and (not isinstance(twiml_url, str) or not twiml_url.strip()):
+        return jsonify({"status": "error", "message": "twiml_url must be a URL when provided"}), 400
 
     try:
-        call = notification_service.make_call(
-            household["emergency_contact"],
-            twiml_url.strip(),
-        )
+        return jsonify({
+            "status": "escalated",
+            "alert": escalate_alert_voice(household_id, alert, twiml_url.strip() if twiml_url else None),
+        })
     except notification_service.NotificationConfigurationError as exc:
         return jsonify({"status": "error", "message": str(exc)}), 503
     except Exception as exc:
@@ -208,3 +214,28 @@ def escalate_alert(household_id, alert_id):
     })
     alerts[household_id] = alerts.get(household_id, [])
     return jsonify({"status": "escalated", "alert": alert})
+
+
+@alerts_bp.get("/<household_id>/<alert_id>/voice")
+def alert_voice_message(household_id, alert_id):
+    """Return TwiML for Twilio's voice escalation callback."""
+    from html import escape
+    from flask import Response
+
+    if household_id not in households:
+        return jsonify({"status": "error", "message": "Household not found"}), 404
+    alert = get_alert(household_id, alert_id)
+    if alert is None:
+        return jsonify({"status": "error", "message": "Alert not found"}), 404
+
+    message = escape(alert.get("message", "Please check your SentinelHome alert."))
+    alert = update_alert(
+        household_id,
+        alert_id,
+        voice_callback_at=datetime.now(timezone.utc).isoformat(),
+    ) or alert
+    xml = (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        f"<Response><Say language=\"en-IN\">{message}</Say></Response>"
+    )
+    return Response(xml, mimetype="text/xml")

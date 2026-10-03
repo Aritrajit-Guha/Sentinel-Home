@@ -1,0 +1,187 @@
+"""Alert delivery and timeout escalation orchestration."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+from app.core.config import settings
+from app.core.store import alerts, households
+from app.services import notification_service
+from app.services.alert_service import update_alert
+from app.services.contact_service import escalation_contacts, primary_contact
+
+
+def _record_delivery(alert: dict, record: dict) -> list[dict]:
+    deliveries = list(alert.get("deliveries") or [])
+    deliveries.append(record)
+    return deliveries
+
+
+def send_alert_whatsapp(household_id: str, alert: dict) -> dict:
+    household = households.get(household_id)
+    if household is None:
+        raise KeyError("Household not found")
+    contact = primary_contact(household)
+    if not contact:
+        raise ValueError("A primary contact is required for WhatsApp delivery")
+    legacy_only = "primary_contact" not in household
+    now = datetime.now(timezone.utc).isoformat()
+    channel = "sms" if legacy_only and not settings.TWILIO_WHATSAPP_FROM else "whatsapp"
+    try:
+        if channel == "sms":
+            message = notification_service.send_sms(contact["phone"], alert["message"])
+        else:
+            message = notification_service.send_whatsapp(contact["phone"], alert["message"])
+    except Exception as exc:
+        failed = {
+            "recipient_id": contact.get("id", "primary"), "name": contact.get("name"),
+            "phone": contact.get("phone"), "channel": channel, "status": "failed",
+            "error": str(exc), "sent_at": now,
+        }
+        update_alert(
+            household_id, alert["id"], delivery_status="failed",
+            delivery_channel=channel, delivery_error=str(exc),
+            deliveries=_record_delivery(alert, failed),
+        )
+        raise
+    record = {
+        "recipient_id": contact.get("id", "primary"), "name": contact.get("name"),
+        "phone": contact.get("phone"), "channel": channel, "status": "sent",
+        "provider_id": getattr(message, "sid", None), "sent_at": now,
+    }
+    return update_alert(
+        household_id, alert["id"], delivery_status="sent", delivery_channel=channel,
+        sent_at=now, delivery_id=getattr(message, "sid", None),
+        deliveries=_record_delivery(alert, record),
+    ) or alert
+
+
+def send_alert_sms(household_id: str, alert: dict) -> dict:
+    """Send one alert by SMS and persist the delivery result."""
+
+    household = households.get(household_id)
+    if household is None:
+        raise KeyError("Household not found")
+    message = notification_service.send_sms(
+        primary_contact(household)["phone"], alert.get("message")
+    )
+    return update_alert(
+        household_id,
+        alert["id"],
+        delivery_status="sent",
+        delivery_channel="sms",
+        sent_at=datetime.now(timezone.utc).isoformat(),
+        delivery_id=getattr(message, "sid", None),
+    ) or alert
+
+
+def escalate_alert_voice(household_id: str, alert: dict, twiml_url: str | None = None) -> dict:
+    """Place an escalation call using the configured TwiML endpoint."""
+
+    household = households.get(household_id)
+    if household is None:
+        raise KeyError("Household not found")
+    contacts = escalation_contacts(household)
+    attempted = {item.get("recipient_id") for item in alert.get("deliveries", []) if item.get("channel") == "voice"}
+    if contacts:
+        twiml_url = twiml_url or notification_service.voice_url_for(alert["id"], household_id)
+    deliveries = list(alert.get("deliveries") or [])
+    errors = []
+    for contact in contacts:
+        if contact.get("id") in attempted:
+            continue
+        now = datetime.now(timezone.utc).isoformat()
+        try:
+            call = notification_service.make_call(contact["phone"], twiml_url)
+            deliveries.append({
+                "recipient_id": contact["id"], "name": contact.get("name"),
+                "relationship": contact.get("relationship"), "phone": contact["phone"],
+                "channel": "voice", "status": "initiated",
+                "provider_id": getattr(call, "sid", None), "sent_at": now,
+            })
+        except Exception as exc:
+            errors.append(str(exc))
+            deliveries.append({
+                "recipient_id": contact["id"], "name": contact.get("name"),
+                "relationship": contact.get("relationship"), "phone": contact["phone"],
+                "channel": "voice", "status": "failed", "error": str(exc), "sent_at": now,
+            })
+    now = datetime.now(timezone.utc).isoformat()
+    reason = "no_configured_relatives" if not contacts else ("delivery_failed" if errors else "calls_initiated")
+    return update_alert(
+        household_id, alert["id"], status="escalated", delivery_status="escalated",
+        delivery_channel="voice", escalated_at=now,
+        escalation_count=sum(1 for item in deliveries if item.get("channel") == "voice"),
+        deliveries=deliveries, escalation_reason=reason,
+        escalation_error="; ".join(errors) if errors else None,
+    ) or alert
+
+
+def process_pending_alerts() -> dict:
+    """Send due WhatsApp alerts and escalate expired unanswered alerts."""
+
+    now = datetime.now(timezone.utc)
+    timeout = timedelta(minutes=settings.ALERT_CONFIRMATION_TIMEOUT_MINUTES)
+    processed = 0
+    sent = 0
+    escalated = 0
+    errors: list[dict] = []
+
+    for household_id, household_alerts in list(_alert_items()):
+        household = households.get(household_id)
+        if household is None:
+            continue
+        for alert in household_alerts:
+            if alert.get("status") != "active":
+                continue
+            processed += 1
+
+            if settings.AUTO_SEND_ALERTS and alert.get("delivery_status") == "pending":
+                try:
+                    send_alert_whatsapp(household_id, alert)
+                    sent += 1
+                except Exception as exc:
+                    update_alert(
+                        household_id, alert["id"],
+                        delivery_status="failed",
+                        delivery_error=str(exc),
+                    )
+                    errors.append({"alert_id": alert["id"], "stage": "whatsapp", "error": str(exc)})
+
+            if household.get("safe") is True:
+                continue
+            created_at = alert.get("created_at")
+            if not created_at:
+                continue
+            try:
+                created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if now - created < timeout:
+                continue
+
+            pending = update_alert(
+                household_id,
+                alert["id"],
+                status="escalation_pending",
+                escalation_required=True,
+                timeout_at=now.isoformat(),
+            ) or alert
+            if settings.AUTO_ESCALATE_ALERTS:
+                try:
+                    escalate_alert_voice(household_id, pending)
+                    escalated += 1
+                except Exception as exc:
+                    errors.append({"alert_id": alert["id"], "stage": "voice", "error": str(exc)})
+
+    return {
+        "active_alerts_checked": processed,
+        "sms_sent": sent,
+        "voice_escalations": escalated,
+        "errors": errors,
+    }
+
+
+def _alert_items():
+    for household_id in list(households):
+        yield household_id, alerts.get(household_id, [])

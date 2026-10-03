@@ -26,7 +26,36 @@ def send_sms(to: str, body: str):
     return _client().messages.create(body=body, from_=_from_number(), to=to)
 
 
+def send_whatsapp(to: str, body: str):
+    if not to or not body:
+        raise ValueError("WhatsApp recipient and body are required")
+    if not settings.TWILIO_WHATSAPP_FROM:
+        raise NotificationConfigurationError("TWILIO_WHATSAPP_FROM is not configured")
+    recipient = str(to).strip()
+    if not recipient.startswith("whatsapp:"):
+        recipient = f"whatsapp:{recipient}"
+    sender = settings.TWILIO_WHATSAPP_FROM.strip()
+    if not sender.startswith("whatsapp:"):
+        sender = f"whatsapp:{sender}"
+    return _client().messages.create(body=body, from_=sender, to=recipient)
+
+
 def make_call(to: str, twiml_url: str):
     if not to or not twiml_url:
         raise ValueError("call recipient and TwiML URL are required")
     return _client().calls.create(url=twiml_url, to=to, from_=_from_number())
+
+
+def voice_url_for(alert_id: str, household_id: str) -> str:
+    """Return the configured TwiML URL for an alert voice call."""
+
+    if settings.TWILIO_VOICE_URL:
+        return settings.TWILIO_VOICE_URL
+    if settings.PUBLIC_BACKEND_URL:
+        return (
+            f"{settings.PUBLIC_BACKEND_URL}/api/alerts/"
+            f"{household_id}/{alert_id}/voice"
+        )
+    raise NotificationConfigurationError(
+        "TWILIO_VOICE_URL or PUBLIC_BACKEND_URL is required for voice escalation"
+    )

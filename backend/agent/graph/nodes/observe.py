@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from agent.graph.state import SentinelState
+from app.core.config import settings
 
 
 def observe_node(state: SentinelState) -> SentinelState:
@@ -13,7 +14,13 @@ def observe_node(state: SentinelState) -> SentinelState:
     if household.get("safe") is True or alert.get("status") == "confirmed":
         return {**state, "confirmation_status": "confirmed", "completed": True}
     created_at = alert.get("created_at")
-    timeout_seconds = float(household.get("confirmation_timeout_seconds", 0) or 0)
+    timeout_seconds = float(
+        household.get(
+            "confirmation_timeout_seconds",
+            settings.ALERT_CONFIRMATION_TIMEOUT_MINUTES * 60,
+        )
+        or 0
+    )
     if created_at and timeout_seconds > 0:
         try:
             created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))

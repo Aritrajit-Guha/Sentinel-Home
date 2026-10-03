@@ -27,3 +27,6 @@ ml/src/catboost_info
 # Misc
 *.log
 .DS_Store
+
+# Local test/runtime output
+.pytest_cache/

@@ -17,6 +17,7 @@ def create_alert(
     risk_score: float | None,
     message: str,
     sources: list[dict] | None = None,
+    event_id: str | None = None,
 ) -> dict:
     household = households.get(household_id)
     if household is None:
@@ -27,6 +28,18 @@ def create_alert(
         raise ValueError("Unsupported hazard")
     if not isinstance(message, str) or not message.strip():
         raise ValueError("Alert message is required")
+
+    if event_id:
+        existing = next(
+            (
+                item for item in alerts.get(household_id, [])
+                if item.get("event_id") == event_id
+                and item.get("status") in {"active", "escalation_pending"}
+            ),
+            None,
+        )
+        if existing is not None:
+            return existing
 
     now = datetime.now(timezone.utc).isoformat()
     numeric_score = float(risk_score) if risk_score is not None else None
@@ -44,6 +57,11 @@ def create_alert(
         "status": "active",
         "created_at": now,
         "confirmed_at": None,
+        "event_id": event_id,
+        "delivery_status": "pending",
+        "delivery_channel": None,
+        "deliveries": [],
+        "escalation_reason": None,
     }
 
     household_alerts = alerts.setdefault(household_id, [])
@@ -59,6 +77,18 @@ def create_alert(
     })
     households[household_id] = household
     return alert
+
+
+def update_alert(household_id: str, alert_id: str, **changes) -> dict | None:
+    """Update and persist one alert record."""
+
+    household_alerts = alerts.get(household_id, [])
+    for alert in household_alerts:
+        if alert.get("id") == alert_id:
+            alert.update(changes)
+            alerts[household_id] = household_alerts
+            return alert
+    return None
 
 
 def risk_level_for(risk_score: float | None) -> str:

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { registerHousehold } from '../api/client'
 import {
   ShieldCheck,
   ChevronLeft,
@@ -32,7 +33,7 @@ const STEP_LABELS = [
   'Building',
   'Household',
   'Vulnerability',
-  'Emergency Contact',
+  'Contacts',
   'Review',
 ]
 
@@ -158,6 +159,7 @@ const initialFormData = {
   vulnerable_members: [],
   emergency_contact_name: '',
   emergency_contact_phone: '',
+  relatives: [],
 }
 
 const isPositiveInteger = (value) => /^\d+$/.test(String(value)) && Number(value) > 0
@@ -222,6 +224,18 @@ function validateStep(stepIndex, formData) {
     } else if (!isValidPhone(formData.emergency_contact_phone)) {
       errors.emergency_contact_phone = 'Enter a valid phone number.'
     }
+    const seenPhones = new Set([formData.emergency_contact_phone.replace(/\D/g, '')])
+    formData.relatives.forEach((relative, index) => {
+      if (!relative.name.trim()) errors[`relative_${index}_name`] = 'Name is required.'
+      if (!relative.relationship.trim()) errors[`relative_${index}_relationship`] = 'Relationship is required.'
+      if (!relative.phone.trim() || !isValidPhone(relative.phone)) {
+        errors[`relative_${index}_phone`] = 'Enter a valid phone number.'
+      } else {
+        const normalized = relative.phone.replace(/\D/g, '')
+        if (seenPhones.has(normalized)) errors[`relative_${index}_phone`] = 'Phone numbers must be unique.'
+        seenPhones.add(normalized)
+      }
+    })
   }
 
   return errors
@@ -789,17 +803,33 @@ function VulnerabilityStep({ formData, updateField }) {
    ============================================================================ */
 
 function EmergencyContactStep({ formData, updateField, errors }) {
+  const updateRelative = (index, field, value) => {
+    const relatives = formData.relatives.map((relative, relativeIndex) =>
+      relativeIndex === index ? { ...relative, [field]: value } : relative,
+    )
+    updateField('relatives', relatives)
+  }
+
+  const addRelative = () => updateField('relatives', [
+    ...formData.relatives,
+    { name: '', relationship: '', phone: '', receive_call: true },
+  ])
+
+  const removeRelative = (index) => updateField(
+    'relatives', formData.relatives.filter((_, relativeIndex) => relativeIndex !== index),
+  )
+
   return (
     <div className="hr-step">
-      <h2 className="hr-step-title">Add an emergency contact</h2>
+      <h2 className="hr-step-title">Set up emergency contacts</h2>
       <p className="hr-step-subtitle">
-        This contact can be used during emergency escalation.
+        The primary contact receives the first WhatsApp alert. Relatives are called only if the alert escalates.
       </p>
 
       <div className="hr-grid hr-grid-2">
         <div className="hr-field">
           <label className="hr-field-label" htmlFor="emergency_contact_name">
-            Emergency contact name
+            Primary contact name
             <span className="hr-required" aria-hidden="true">*</span>
           </label>
           <input
@@ -815,7 +845,7 @@ function EmergencyContactStep({ formData, updateField, errors }) {
 
         <div className="hr-field">
           <label className="hr-field-label" htmlFor="emergency_contact_phone">
-            Emergency contact phone
+            Primary contact phone
             <span className="hr-required" aria-hidden="true">*</span>
           </label>
           <input
@@ -829,6 +859,42 @@ function EmergencyContactStep({ formData, updateField, errors }) {
           {errors.emergency_contact_phone && <p className="hr-field-error">{errors.emergency_contact_phone}</p>}
         </div>
       </div>
+
+      <div className="hr-note">
+        <ShieldCheck size={18} strokeWidth={1.8} />
+        <p>WhatsApp alerts are sent to the primary contact. Add relatives for voice-call escalation.</p>
+      </div>
+
+      <div className="hr-section-heading">
+        <h3>Relatives for escalation</h3>
+        <button type="button" className="hr-secondary-button" onClick={addRelative}>Add relative</button>
+      </div>
+      {formData.relatives.map((relative, index) => (
+        <div className="hr-grid hr-grid-2" key={index}>
+          <div className="hr-field">
+            <label className="hr-field-label">Name</label>
+            <input type="text" value={relative.name} onChange={(e) => updateRelative(index, 'name', e.target.value)} />
+            {errors[`relative_${index}_name`] && <p className="hr-field-error">{errors[`relative_${index}_name`]}</p>}
+          </div>
+          <div className="hr-field">
+            <label className="hr-field-label">Relationship</label>
+            <input type="text" value={relative.relationship} onChange={(e) => updateRelative(index, 'relationship', e.target.value)} placeholder="e.g. father" />
+            {errors[`relative_${index}_relationship`] && <p className="hr-field-error">{errors[`relative_${index}_relationship`]}</p>}
+          </div>
+          <div className="hr-field">
+            <label className="hr-field-label">Phone</label>
+            <input type="tel" value={relative.phone} onChange={(e) => updateRelative(index, 'phone', e.target.value)} placeholder="e.g. +91 98765 43210" />
+            {errors[`relative_${index}_phone`] && <p className="hr-field-error">{errors[`relative_${index}_phone`]}</p>}
+          </div>
+          <div className="hr-field">
+            <label className="hr-checkbox-label">
+              <input type="checkbox" checked={relative.receive_call} onChange={(e) => updateRelative(index, 'receive_call', e.target.checked)} />
+              Call this relative during escalation
+            </label>
+            <button type="button" className="hr-text-button" onClick={() => removeRelative(index)}>Remove</button>
+          </div>
+        </div>
+      ))}
 
       <div className="hr-note">
         <ShieldAlert size={18} strokeWidth={1.8} />
@@ -888,6 +954,7 @@ function ReviewStep({ formData, goToStep }) {
       <ReviewSection title="Emergency contact" stepIndex={4} onEdit={goToStep}>
         <ReviewRow label="Name" value={formData.emergency_contact_name} />
         <ReviewRow label="Phone" value={formData.emergency_contact_phone} />
+        <ReviewRow label="Escalation relatives" value={formData.relatives.length ? formData.relatives.map((relative) => `${relative.name} (${relative.relationship})`).join(', ') : 'None selected'} wide />
       </ReviewSection>
     </div>
   )
@@ -966,6 +1033,11 @@ export default function HouseholdRegistration() {
         name: formData.emergency_contact_name,
         phone: formData.emergency_contact_phone,
       },
+      primary_contact: {
+        name: formData.emergency_contact_name,
+        phone: formData.emergency_contact_phone,
+      },
+      relatives: formData.relatives,
       vulnerable_members: formData.vulnerable_members,
       count_floors_pre_eq: Number(formData.count_floors_pre_eq),
       age_building: Number(formData.age_building),
@@ -983,10 +1055,8 @@ export default function HouseholdRegistration() {
 
     setIsSubmitting(true)
     try {
-      // TODO(backend): swap this simulated delay for the real API call above.
-      await new Promise((resolve) => setTimeout(resolve, 700))
-      console.info('SentinelHome household payload (demo mode):', payload)
-      navigate('/dashboard')
+      const result = await registerHousehold(payload)
+      navigate(`/dashboard/${result.household.id}`)
     } finally {
       setIsSubmitting(false)
     }

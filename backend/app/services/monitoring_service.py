@@ -1,10 +1,25 @@
 """Scheduled hazard monitoring and agentic household assessment."""
 
 from datetime import datetime, timezone
+import hashlib
+import json
 
 from agent.graph.build_graph import run_agent_workflow
 from app.core.store import households
 from app.services.hazard_fetcher import fetch_earthquake_data, nearby_earthquakes
+
+
+def _event_signature(event: dict) -> str:
+    values = {
+        "id": event.get("id"),
+        "magnitude": event.get("magnitude"),
+        "mmi": event.get("mmi"),
+        "distance_km": event.get("distance_km"),
+        "hypocentral_distance_km": event.get("hypocentral_distance_km"),
+    }
+    return hashlib.sha256(
+        json.dumps(values, sort_keys=True).encode("utf-8")
+    ).hexdigest()
 
 
 def run_monitoring_cycle(earthquake_data: dict | None = None) -> dict:
@@ -29,9 +44,18 @@ def run_monitoring_cycle(earthquake_data: dict | None = None) -> dict:
         if events:
             earthquake = events[0]
             event_id = earthquake.get("id")
-            if event_id and household.get("last_assessed_event_id") != event_id:
+            signature = _event_signature(earthquake)
+            should_assess = (
+                event_id
+                and (
+                    household.get("last_assessed_event_id") != event_id
+                    or household.get("last_assessment_signature") != signature
+                )
+            )
+            if should_assess:
                 workflow = run_agent_workflow(household, earthquake)
                 assessment = workflow.get("assessment")
+                workflow_errors = list(workflow.get("errors", []))
                 if assessment:
                     household["last_assessment"] = {
                         "hazard": "earthquake",
@@ -39,11 +63,18 @@ def run_monitoring_cycle(earthquake_data: dict | None = None) -> dict:
                         "assessed_at": checked_at,
                         **assessment,
                     }
-                    household["last_assessed_event_id"] = event_id
                     household["risk_score"] = assessment["urgency_score"]
                     household["risk_level"] = assessment["urgency_level"]
                     household["last_hazard"] = "earthquake"
                     household["last_hazard_at"] = checked_at
+                # If advice/RAG failed before an alert was created, leave the
+                # event eligible for retry on the next scheduler cycle. An
+                # existing alert means the assessment itself completed and
+                # should not be duplicated merely because SMS delivery failed.
+                if assessment and (not workflow_errors or workflow.get("alert")):
+                    household["last_assessed_event_id"] = event_id
+                    household["last_assessment_signature"] = signature
+                household["last_workflow_errors"] = workflow_errors
 
         households[household["id"]] = household
         results.append({

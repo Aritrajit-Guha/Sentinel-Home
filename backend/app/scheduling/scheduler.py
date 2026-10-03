@@ -1,6 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.core.config import settings
-from app.scheduling.tasks import check_all_households
+from app.scheduling.tasks import check_all_households, check_pending_alerts
 
 scheduler = BackgroundScheduler()
 
@@ -25,6 +25,13 @@ def start_scheduler() -> bool:
         id="household-monitoring",
         replace_existing=True,
     )
+    scheduler.add_job(
+        check_pending_alerts,
+        "interval",
+        minutes=1,
+        id="alert-delivery-and-escalation",
+        replace_existing=True,
+    )
     scheduler.start()
     return True
 
@@ -42,9 +49,14 @@ def stop_scheduler() -> bool:
 
 def scheduler_status() -> dict:
     job = scheduler.get_job("household-monitoring")
+    delivery_job = scheduler.get_job("alert-delivery-and-escalation")
     return {
         "enabled": settings.ENABLE_SCHEDULER,
         "running": scheduler.running,
         "interval_minutes": settings.MONITOR_INTERVAL_MINUTES,
         "next_run_at": job.next_run_time.isoformat() if job and job.next_run_time else None,
+        "next_delivery_run_at": (
+            delivery_job.next_run_time.isoformat()
+            if delivery_job and delivery_job.next_run_time else None
+        ),
     }

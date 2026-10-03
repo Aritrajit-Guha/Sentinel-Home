@@ -4,6 +4,7 @@ from app.core.store import alerts, households
 from app.services.hazard_fetcher import fetch_earthquake_data, fetch_weather_data
 from app.services.monitoring_service import run_monitoring_cycle
 from app.scheduling.scheduler import scheduler_status, start_scheduler, stop_scheduler
+from app.services.delivery_service import process_pending_alerts
 
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
@@ -62,6 +63,14 @@ def stop_monitoring_scheduler():
         "status": "stopped" if stopped else "already_stopped",
         "scheduler": scheduler_status(),
     })
+
+
+@admin_bp.post("/alerts/process")
+def process_alert_delivery():
+    try:
+        return jsonify({"status": "completed", **process_pending_alerts()})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 502
 
 
 @admin_bp.get("/hazards/weather")

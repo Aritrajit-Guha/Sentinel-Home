@@ -129,6 +129,7 @@ from agent.validation.model_input_validator import (
     MODEL_CATEGORICAL_VALUES as BUILDING_CATEGORICAL_FIELDS,
     SUPERSTRUCTURE_COLUMNS,
 )
+from app.services.contact_service import contact_errors
 
 
 REQUIRED_FIELDS = (
@@ -287,5 +288,6 @@ def validate_household(payload, *, partial=False):
                 )
 
     _validate_building_fields(payload, errors)
+    errors.extend(contact_errors(payload))
 
     return errors

@@ -20,6 +20,14 @@ class Settings:
     TWILIO_SID = os.getenv("TWILIO_SID", "")
     TWILIO_TOKEN = os.getenv("TWILIO_TOKEN", "")
     TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "")
+    TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "")
+    TWILIO_VOICE_URL = os.getenv("TWILIO_VOICE_URL", "")
+    PUBLIC_BACKEND_URL = os.getenv("PUBLIC_BACKEND_URL", "").rstrip("/")
+    AUTO_SEND_ALERTS = os.getenv("AUTO_SEND_ALERTS", "false").lower() == "true"
+    AUTO_ESCALATE_ALERTS = os.getenv("AUTO_ESCALATE_ALERTS", "false").lower() == "true"
+    ALERT_CONFIRMATION_TIMEOUT_MINUTES = int(
+        os.getenv("ALERT_CONFIRMATION_TIMEOUT_MINUTES", "5")
+    )
     FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "*")
     APP_ENV = os.getenv("APP_ENV", "development")
     ENABLE_SCHEDULER = os.getenv("ENABLE_SCHEDULER", "false").lower() == "true"
