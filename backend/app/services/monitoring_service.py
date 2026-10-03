@@ -22,7 +22,7 @@ def _event_signature(event: dict) -> str:
     ).hexdigest()
 
 
-def run_monitoring_cycle(earthquake_data: dict | None = None) -> dict:
+def run_monitoring_cycle(earthquake_data: dict | None = None, event_callback=None) -> dict:
     """Fetch hazards once and run each new event through LangGraph."""
 
     checked_at = datetime.now(timezone.utc).isoformat()
@@ -53,7 +53,12 @@ def run_monitoring_cycle(earthquake_data: dict | None = None) -> dict:
                 )
             )
             if should_assess:
-                workflow = run_agent_workflow(household, earthquake)
+                workflow_callback = None
+                if event_callback:
+                    workflow_callback = lambda event, household_id=household["id"]: event_callback({
+                        **event, "household_id": household_id,
+                    })
+                workflow = run_agent_workflow(household, earthquake, workflow_callback)
                 assessment = workflow.get("assessment")
                 workflow_errors = list(workflow.get("errors", []))
                 if assessment:
@@ -97,6 +102,7 @@ def run_monitoring_cycle(earthquake_data: dict | None = None) -> dict:
             "confirmation_status": workflow.get("confirmation_status") if workflow else None,
             "escalation_required": bool(workflow.get("escalation_required")) if workflow else False,
             "workflow_errors": list(workflow.get("errors", [])) if workflow else [],
+            "trace": list(workflow.get("trace", [])) if workflow else [],
         })
 
     return {

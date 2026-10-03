@@ -16,7 +16,7 @@ has produced an assessment for a household/earthquake pair.
 
 from __future__ import annotations
 
-from agent.graph.state import SentinelState, append_error
+from agent.graph.state import SentinelState, append_error, trace_event
 
 
 NO_GUIDANCE_FOUND = "No relevant safety guidance was found."
@@ -32,7 +32,7 @@ FALLBACK_MESSAGE = (
 )
 
 
-def _fallback_advice(query: str, *, sources: list[dict] | None = None, error: Exception | None = None) -> dict:
+def _fallback_advice(query: str, *, sources: list[dict] | None = None, retrieved_guidance: list[dict] | None = None, prompt: str | None = None, error: Exception | None = None) -> dict:
     """Return safe advice when an optional guidance provider is unavailable.
 
     A provider outage must not prevent a high-risk assessment from creating an
@@ -47,7 +47,10 @@ def _fallback_advice(query: str, *, sources: list[dict] | None = None, error: Ex
         "query": query,
         "grounded": False,
         "degraded": True,
+        "retrieved_guidance": retrieved_guidance or [],
     }
+    if prompt:
+        result["prompt"] = prompt
     if error is not None:
         result["generation_error"] = str(error)
     return result
@@ -103,6 +106,14 @@ def generate_advice_for_household(
         }
         for document in documents
     ]
+    retrieved_guidance = [
+        {
+            "source": document.metadata.get("source", "unknown source"),
+            "page": document.metadata.get("page", "unknown page"),
+            "excerpt": document.page_content.strip()[:1200],
+        }
+        for document in documents
+    ]
 
     try:
         message = generate_guidance_text(prompt)
@@ -110,13 +121,21 @@ def generate_advice_for_household(
         # Gemini can transiently return 5xx/503 responses.  Preserve the
         # retrieved source metadata and continue with conservative advice so
         # the alert and its delivery state are still recorded.
-        return _fallback_advice(query, sources=sources, error=exc)
+        return _fallback_advice(
+            query,
+            sources=sources,
+            retrieved_guidance=retrieved_guidance,
+            prompt=prompt,
+            error=exc,
+        )
 
     return {
         "message": message,
         "sources": sources,
         "query": query,
         "grounded": True,
+        "retrieved_guidance": retrieved_guidance,
+        "prompt": prompt,
     }
 
 
@@ -133,4 +152,22 @@ def advise_node(state: SentinelState) -> SentinelState:
         advice = generate_advice_for_household(household, earthquake, assessment)
     except Exception as exc:
         return append_error(state, f"advice generation failed: {exc}")
-    return {**state, "advice": advice}
+    traced = trace_event(
+        state,
+        stage="rag_retrieval",
+        status="completed" if advice.get("retrieved_guidance") else "degraded",
+        title="Pinecone safety-guidance retrieval",
+        request={"query": advice.get("query"), "top_k": len(advice.get("retrieved_guidance", []))},
+        response={"sources": advice.get("sources", []), "excerpts": advice.get("retrieved_guidance", [])},
+        error=advice.get("generation_error") if advice.get("degraded") else None,
+    )
+    traced = trace_event(
+        traced,
+        stage="guidance_generation",
+        status="degraded" if advice.get("degraded") else "completed",
+        title="Gemini grounded safety guidance",
+        request={"prompt": advice.get("prompt", "")},
+        response={"message": advice.get("message"), "grounded": advice.get("grounded", False)},
+        error=advice.get("generation_error"),
+    )
+    return {**traced, "advice": advice}

@@ -16,6 +16,42 @@ class SentinelState(TypedDict, total=False):
     completed: bool
     silent: bool
     errors: list[str]
+    trace: list[dict[str, Any]]
+    _trace_callback: Any
+
+
+def trace_event(
+    state: SentinelState,
+    *,
+    stage: str,
+    status: str,
+    title: str,
+    detail: str | None = None,
+    request: Any = None,
+    response: Any = None,
+    error: str | None = None,
+) -> SentinelState:
+    """Append a safe, JSON-serializable event for the internal dev console."""
+
+    events = list(state.get("trace", []))
+    event = {
+        "stage": stage,
+        "status": status,
+        "title": title,
+    }
+    if detail is not None:
+        event["detail"] = detail
+    if request is not None:
+        event["request"] = request
+    if response is not None:
+        event["response"] = response
+    if error is not None:
+        event["error"] = error
+    events.append(event)
+    callback = state.get("_trace_callback")
+    if callable(callback):
+        callback(event)
+    return {**state, "trace": events}
 
 
 def append_error(state: SentinelState, message: str) -> SentinelState:

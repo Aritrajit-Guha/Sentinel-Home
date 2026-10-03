@@ -45,7 +45,24 @@ def _run(job_id: str, event_id: str) -> None:
         _jobs[job_id]["status"] = "running"
         _jobs[job_id]["started_at"] = datetime.now(timezone.utc).isoformat()
     try:
-        result = run_monitoring_cycle(earthquake_data=_fixture(event_id))
+        def record_event(event: dict) -> None:
+            with _lock:
+                _jobs[job_id].setdefault("events", []).append({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    **event,
+                })
+
+        record_event({
+            "stage": "hazard_api",
+            "status": "completed",
+            "title": "Controlled earthquake fixture loaded",
+            "request": {"source": "simulation_fixture", "event_id": event_id},
+            "response": _fixture(event_id),
+        })
+        result = run_monitoring_cycle(
+            earthquake_data=_fixture(event_id),
+            event_callback=record_event,
+        )
         with _lock:
             _jobs[job_id].update({
                 "status": "completed",
@@ -70,6 +87,7 @@ def start_simulation() -> dict:
             "simulation_event_id": event_id,
             "status": "queued",
             "created_at": datetime.now(timezone.utc).isoformat(),
+            "events": [],
         }
     _executor.submit(_run, job_id, event_id)
     return get_simulation(job_id)

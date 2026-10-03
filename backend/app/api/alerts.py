@@ -139,14 +139,14 @@ def send_alert(household_id, alert_id):
     if not isinstance(payload, dict):
         return jsonify({"status": "error", "message": "request body must be a JSON object"}), 400
     channel = payload.get("channel", "whatsapp")
-    if channel not in {"whatsapp", "sms"}:
+    if channel not in {"whatsapp", "telegram", "sms"}:
         return jsonify({
             "status": "error",
             "message": "channel must be whatsapp or sms",
         }), 400
 
     try:
-        if channel == "whatsapp":
+        if channel in {"whatsapp", "telegram"}:
             return jsonify({"status": "sent", "alert": send_alert_whatsapp(household_id, alert)})
         contact = primary_contact(household)
         if not contact:
