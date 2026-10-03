@@ -100,3 +100,28 @@ class AgentWorkflowTests(unittest.TestCase):
         self.assertTrue(result["degraded"])
         self.assertEqual(result["sources"][0]["source"], "guide.pdf")
         self.assertIn("503 unavailable", result["generation_error"])
+
+    def test_parameter_provider_failure_uses_validated_fallback(self):
+        from agent.tools.model_parameter_tool import generate_parameters_for_household
+
+        household = {
+            "count_floors_pre_eq": 2,
+            "age_building": 30,
+            "superstructure_materials": ["adobe_mud"],
+        }
+        earthquake = {
+            "magnitude": 7.5,
+            "distance_km": 12.0,
+            "hypocentral_distance_km": 15.0,
+            "mmi": 8.0,
+        }
+        with patch(
+            "agent.tools.model_parameter_tool.generate_model_parameters",
+            side_effect=RuntimeError("503 unavailable"),
+        ):
+            result = generate_parameters_for_household(household, earthquake)
+
+        self.assertEqual(result["count_floors_pre_eq"], 2)
+        self.assertEqual(result["magnitude"], 7.5)
+        self.assertEqual(result["epicentral_distance_km"], 12.0)
+        self.assertEqual(result["has_superstructure_adobe_mud"], 1)

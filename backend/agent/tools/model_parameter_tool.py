@@ -26,6 +26,7 @@ from __future__ import annotations
 from agent.prompts.parameter_prompt import build_parameter_prompt
 from agent.tools.llm_client import generate_model_parameters
 from agent.validation.model_input_validator import (
+    DEFAULT_MODEL_VALUES,
     superstructure_flags_from_materials,
     validate_model_parameters,
 )
@@ -51,6 +52,37 @@ KNOWN_BUILDING_FIELDS = (
 )
 
 
+def _fallback_parameters(household: dict, earthquake: dict) -> dict:
+    """Build validated model inputs without an LLM call.
+
+    Household registration values and normalized USGS values are deterministic
+    facts.  The remaining model columns use the schema's explicit defaults.
+    This keeps an upstream Gemini outage from suppressing a safety assessment;
+    it does not alter the normal LLM path when Gemini is available.
+    """
+
+    candidate = dict(DEFAULT_MODEL_VALUES)
+    for field in KNOWN_BUILDING_FIELDS:
+        value = household.get(field)
+        if value not in (None, ""):
+            candidate[field] = value
+
+    candidate.update({
+        "magnitude": earthquake.get("magnitude", candidate["magnitude"]),
+        "epicentral_distance_km": earthquake.get(
+            "distance_km", candidate["epicentral_distance_km"]
+        ),
+        "hypocentral_distance_km": earthquake.get(
+            "hypocentral_distance_km", candidate["hypocentral_distance_km"]
+        ),
+        "mmi": earthquake.get("mmi", candidate["mmi"]),
+    })
+    candidate.update(
+        superstructure_flags_from_materials(household.get("superstructure_materials"))
+    )
+    return validate_model_parameters(candidate)
+
+
 def generate_parameters_for_household(
     household: dict,
     earthquake: dict,
@@ -61,7 +93,10 @@ def generate_parameters_for_household(
         household=household,
         earthquake=earthquake,
     )
-    candidate = generate_model_parameters(prompt)
+    try:
+        candidate = generate_model_parameters(prompt)
+    except Exception:
+        return _fallback_parameters(household, earthquake)
 
     # Known household-provided values are ground truth: they always win
     # over Gemini's guess. Gemini is only meant to fill in what the
