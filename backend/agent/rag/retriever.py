@@ -12,7 +12,11 @@ try:
     # Works when imported as backend.agent.rag.retriever
     from .ingest import VoyageEmbeddings
 except ImportError:
-    # Works when this file is run directly
+    # Works when this file is run directly. When imported as a package, keep
+    # the original dependency error visible instead of masking it as a missing
+    # top-level ``ingest`` module.
+    if __package__:
+        raise
     from ingest import VoyageEmbeddings
 
 
