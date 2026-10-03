@@ -22,6 +22,7 @@ class Settings:
     TWILIO_TOKEN = os.getenv("TWILIO_TOKEN", "")
     TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "")
     TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "")
+    TWILIO_WHATSAPP_CONTENT_SID = os.getenv("TWILIO_WHATSAPP_CONTENT_SID", "")
     TWILIO_VOICE_URL = os.getenv("TWILIO_VOICE_URL", "")
     PUBLIC_BACKEND_URL = os.getenv("PUBLIC_BACKEND_URL", "").rstrip("/")
     AUTO_SEND_ALERTS = os.getenv("AUTO_SEND_ALERTS", "false").lower() == "true"

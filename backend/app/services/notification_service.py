@@ -1,6 +1,7 @@
 """Notification boundary for Twilio SMS and voice delivery."""
 
 import re
+import json
 
 from twilio.rest import Client
 from app.core.config import settings
@@ -49,7 +50,14 @@ def send_whatsapp(to: str, body: str):
     sender = settings.TWILIO_WHATSAPP_FROM.strip()
     if not sender.startswith("whatsapp:"):
         sender = f"whatsapp:{sender}"
-    return _client().messages.create(body=body, from_=sender, to=recipient)
+    payload = {"from_": sender, "to": recipient}
+    content_sid = settings.TWILIO_WHATSAPP_CONTENT_SID.strip()
+    if content_sid:
+        payload["content_sid"] = content_sid
+        payload["content_variables"] = json.dumps({"1": body})
+    else:
+        payload["body"] = body
+    return _client().messages.create(**payload)
 
 
 def make_call(to: str, twiml_url: str):
