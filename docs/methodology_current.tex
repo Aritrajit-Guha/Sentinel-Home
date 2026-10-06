@@ -1,49 +1,57 @@
-\\section{Methodology}
-SentinelHome is a household-centred earthquake-response system. The implemented workflow combines USGS hazard acquisition, LLM-assisted parameter generation, validation, XGBoost damage classification, household vulnerability scoring, retrieval-augmented safety guidance, LangGraph orchestration, persistent alerts, Telegram delivery, household confirmation, and optional voice escalation. Flood and cyclone documents are supported by the retrieval architecture, but live automated damage assessment is currently implemented primarily for earthquakes.
+\section{Methodology}
 
-\\subsection{System Architecture}
-The React/Vite frontend collects location, building data, vulnerable members, primary contact details, and optional relatives. The Flask backend validates these details and coordinates monitoring. The implemented flow is:
-\\[
-\\text{USGS event}\\rightarrow\\text{normalization}\\rightarrow\\text{LLM parameters}\\rightarrow\\text{validation}\\rightarrow\\text{XGBoost}\\rightarrow\\text{urgency}\\rightarrow\\text{RAG}\\rightarrow\\text{Gemini guidance}\\rightarrow\\text{alert}\\rightarrow\\text{confirmation or escalation}.
-\\]
-Event identifiers and normalized signatures prevent repeated processing of unchanged events.
+SentinelHome is implemented as a household-centred earthquake-response system. Its operational workflow combines USGS hazard monitoring, LLM-assisted parameter generation, validation, XGBoost damage prediction, household vulnerability scoring, retrieval-augmented safety guidance, LangGraph orchestration, persistent alerts, Telegram delivery, household confirmation, and optional voice escalation. Flood and cyclone documents are supported by the retrieval architecture, while live automated damage assessment is currently implemented primarily for earthquakes.
 
-\\subsection{Earthquake Acquisition}
-The backend extracts the USGS event identifier, magnitude, place, timestamp, source URL, coordinates, depth, and MMI. Invalid coordinates are discarded. Epicentral distance is calculated with the Haversine formula and hypocentral distance is calculated from epicentral distance and depth. Events outside the monitoring radius are discarded. External-provider calls use bounded retries.
+\subsection{System Architecture and Hazard Acquisition}
 
-\\subsection{Damage Model}
-The training notebook reports 1,599,952 records, 37 original columns, and five damage-grade classes. The runtime pipeline expects 26 features consisting of numeric structural features, categorical structural features, construction-material indicators, magnitude, MMI, epicentral distance, and hypocentral distance. Identifier and post-earthquake leakage fields are excluded. Numeric values are imputed and categorical values are one-hot encoded.
+The React/Vite frontend collects household location, building information, vulnerable members, primary contact details, and optional relatives. The Flask backend validates these details and coordinates monitoring. Earthquake events are obtained from the USGS GeoJSON service. The backend extracts the event identifier, magnitude, place, timestamp, source URL, coordinates, depth, and MMI. Invalid coordinates are discarded.
 
-\\subsection{LLM Parameters and XGBoost}
-The user is not required to answer every model question. Gemini receives a structured prompt constructed from registered building information, the normalized earthquake response, approximations, and controlled defaults. A validator checks required fields, ranges, allowed categories, material indicators, and consistency with registered construction materials. Only validated parameters are passed to the saved XGBoost pipeline, which returns a damage grade and class probabilities. The simulation console exposes the prompt, generation status, validated parameters, and ML output.
+Epicentral distance is calculated using the Haversine formula, and hypocentral distance is derived from epicentral distance and earthquake depth. Events outside the configured monitoring radius are discarded and the remaining events are normalized for the workflow. Event identifiers and normalized signatures prevent repeated processing of unchanged events. External provider calls use bounded retries.
 
-\\subsection{Personalized Urgency}
-Physical building damage and household vulnerability are separate layers. Vulnerability inputs include household size, children, elderly members, disabled members, pregnancy, and medical needs. The implemented urgency score is:
-\\[
-U=0.60D_p+0.25H_s+0.15V_h,
-\\]
-where $D_p$ is physical damage risk, $H_s$ is normalized hazard severity, and $V_h$ is household vulnerability. The score is clipped to $[0,1]$ and mapped to low, medium, or high urgency. Vulnerability weights are backend policy values, not learned damage-model outputs.
+\subsection{Damage Model and LLM Parameter Generation}
 
-\\subsection{RAG and Grounded Guidance}
-Safety PDFs are processed page by page, split into overlapping chunks, and indexed with source, page, hazard, and chunk metadata. LangChain, Voyage AI, Pinecone, hazard filtering, and Maximum Marginal Relevance are used for retrieval. Gemini receives the household facts, earthquake data, assessment, and retrieved context and is instructed to produce concise guidance using only the retrieved evidence. It must not invent shelters, routes, medical instructions, or unsupported hazard facts. Plain-text and block-based Gemini responses are supported. If generation fails after retries, official retrieved excerpts are preserved in a degraded fallback.
+The training notebook reports 1,599,952 records, 37 original columns, and five damage-grade classes. The saved runtime pipeline expects 26 features consisting of numeric structural features, categorical structural features, construction-material indicators, magnitude, MMI, epicentral distance, and hypocentral distance. Identifier and post-earthquake leakage fields are excluded. Numeric values are imputed and categorical values are one-hot encoded.
 
-\\subsection{LangGraph Workflow}
-The implemented graph carries household, earthquake, assessment, advice, alert, confirmation, escalation, errors, and trace state. Its nodes are:
-\\begin{enumerate}
-\\item \\textbf{Assess}: generate parameters, validate them, run XGBoost, and calculate urgency.
-\\item \\textbf{End Silent}: finish for low urgency.
-\\item \\textbf{Advise}: retrieve official guidance and generate grounded advice.
-\\item \\textbf{Alert}: persist and deliver the initial alert.
-\\item \\textbf{Observe}: wait for confirmation or timeout.
-\\item \\textbf{Escalate}: initiate configured relative calls for unanswered alerts.
-\\end{enumerate}
-The graph controls transitions while separate services perform inference, retrieval, LLM generation, persistence, and provider communication.
+The user is not required to answer every model question. The backend constructs a structured Gemini prompt from registered building information, normalized earthquake data, controlled approximations, and hard-coded defaults. Gemini returns candidate parameters. The validation layer checks required fields, ranges, allowed categories, binary indicators, and construction-material consistency. Only validated parameters are sent to XGBoost. The model returns a damage grade and class probabilities.
 
-\\subsection{Delivery and Simulation Isolation}
-The primary contact receives the initial alert. Telegram supports full free-form messages, while Twilio remains available for compatible WhatsApp and voice configurations. The dashboard confirms safety and prevents escalation. Relatives are called sequentially after timeout, and delivery records prevent duplicates.
+\subsection{Household Vulnerability and Urgency}
 
-The protected simulation uses deep-copied households and simulation-tagged alerts. It can execute the real ML, RAG, Gemini, LangGraph, alert, and Telegram paths without changing production risk, safety, assessment, or monitoring state. Simulation alerts are excluded from normal dashboards, alert APIs, and automatic escalation.
+Physical building damage and household vulnerability are separate layers. Vulnerability inputs include household size, children, elderly members, disabled members, pregnancy, and medical needs. The urgency score is:
 
-\\subsection{Limitations}
+\[
+U = 0.60D_p + 0.25H_s + 0.15V_h,
+\]
+
+where $D_p$ is physical damage risk, $H_s$ is normalized hazard severity, and $V_h$ is household vulnerability. The score is clipped to $[0,1]$ and mapped to low, medium, or high urgency. Vulnerability weights are backend policy values and are not learned damage-model outputs.
+
+\subsection{Retrieval-Augmented Safety Guidance}
+
+Safety PDFs are processed page by page, split into overlapping chunks, and indexed with source, page, hazard, and chunk metadata. LangChain, Voyage AI embeddings, Pinecone, hazard filtering, and Maximum Marginal Relevance are used for retrieval. The backend builds an assessment-specific query and passes the retrieved context, household facts, earthquake data, and assessment to Gemini.
+
+Gemini is instructed to produce concise guidance using only retrieved evidence and not to invent shelters, routes, medical instructions, or unsupported hazard facts. Plain-text and block-based responses are supported. If generation fails after retries, official retrieved excerpts are preserved in a degraded evidence-based fallback.
+
+\subsection{LangGraph Agentic Workflow}
+
+The implemented LangGraph state carries household, earthquake, assessment, advice, alert, confirmation, escalation, errors, and execution-trace data. Its workflow is:
+
+\begin{enumerate}
+\item \textbf{Assess}: generate and validate parameters, run XGBoost, and calculate urgency.
+\item \textbf{End Silent}: finish without an alert for low urgency.
+\item \textbf{Advise}: retrieve official guidance and generate grounded advice.
+\item \textbf{Alert}: persist and deliver the initial alert.
+\item \textbf{Observe}: wait for confirmation or detect timeout.
+\item \textbf{Escalate}: initiate configured relative calls for unanswered alerts.
+\end{enumerate}
+
+LangGraph controls transitions while separate services perform inference, retrieval, LLM generation, persistence, and notification-provider communication. The protected simulation console exposes each stage, request, response, status, and error.
+
+\subsection{Notification, Persistence, and Simulation Isolation}
+
+The primary contact receives the initial alert. Telegram supports full free-form safety messages, while Twilio remains available for compatible WhatsApp and voice configurations. The household dashboard provides a safe-confirmation action that prevents escalation. Enabled relatives are called sequentially after timeout, and delivery records prevent duplicate calls.
+
+The storage abstraction supports MongoDB and retains memory mode for local development. The protected simulation uses deep-copied households and simulation-tagged alerts. It can execute the real ML, RAG, Gemini, LangGraph, alert, and Telegram paths without changing production household risk, safety, assessment, or monitoring state. Simulation alerts are excluded from normal dashboards, alert APIs, and automatic escalation.
+
+\subsection{Current Limitations}
+
 Production authentication, inbound Telegram confirmation replies, live flood and cyclone damage models, shelter or route databases, and full background-job hardening remain future work. Automatic voice escalation depends on valid Twilio configuration. The current implementation demonstrates a complete earthquake household-response workflow and provides an extensible foundation for additional hazards.
 
