@@ -15,8 +15,8 @@ build/
 .env
 
 # Data (point to source in ml/data/raw/README.md instead)
-ml/data/raw/*.csv
-ml/data/processed/*.csv
+
+
 
 # Trained model artifacts (risk_model.pkl alone is ~900MB, exceeds GitHub's 100MB limit)
 ml/src/catboost_info
