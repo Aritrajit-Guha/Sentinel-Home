@@ -1,1 +1,2 @@
+backend/path/to/file.csv filter=lfs diff=lfs merge=lfs -text
 backend/ml/data/raw/earthquake_final_training_dataset_200k.csv filter=lfs diff=lfs merge=lfs -text
