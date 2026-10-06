@@ -1,57 +1,41 @@
-\section{Methodology}
+\section{Introduction}
+\label{intro}
 
-SentinelHome is implemented as a household-centred earthquake-response system. Its operational workflow combines USGS hazard monitoring, LLM-assisted parameter generation, validation, XGBoost damage prediction, household vulnerability scoring, retrieval-augmented safety guidance, LangGraph orchestration, persistent alerts, Telegram delivery, household confirmation, and optional voice escalation. Flood and cyclone documents are supported by the retrieval architecture, while live automated damage assessment is currently implemented primarily for earthquakes.
+Natural disasters such as earthquakes, floods, and cyclones threaten human life, residential infrastructure, and community resilience. Existing disaster-management systems use public monitoring, wireless sensing, predictive modelling, and emergency-response mechanisms to identify hazards and support timely decisions \cite{zeeshan2025flood, meenakshi2023wireless}. However, regional warnings generally provide similar information to all households and do not adequately account for building characteristics, household composition, hazard distance, or individual vulnerability. Studies on household resilience show that demographic and socioeconomic conditions significantly influence disaster preparedness and response \cite{fahad2023household}.
 
-\subsection{System Architecture and Hazard Acquisition}
+A personalized disaster-warning system must combine hazard information with household-specific context. Machine-learning models can estimate physical building damage from structural and hazard-related features, but damage prediction alone cannot provide understandable safety instructions or coordinate communication. Recent research has explored predictive AI and multi-agent systems for household hazard prevention and resilient disaster response \cite{homeguardian2024predictive, aththanayake2026resqconnect}. Similarly, Large Language Models can generate emergency instructions, but unrestricted generation may produce unsupported structural claims, unsafe medical advice, or fabricated evacuation information. Retrieval-Augmented Generation and grounded LLM frameworks are therefore useful for disaster early-warning and emergency-response applications \cite{nugroho2025rag, xie2025deepseek, cui2026llmagents}.
 
-The React/Vite frontend collects household location, building information, vulnerable members, primary contact details, and optional relatives. The Flask backend validates these details and coordinates monitoring. Earthquake events are obtained from the USGS GeoJSON service. The backend extracts the event identifier, magnitude, place, timestamp, source URL, coordinates, depth, and MMI. Invalid coordinates are discarded.
+To address these limitations, this paper presents \textit{SentinelHome}, a personalized multi-hazard disaster early-warning and household-response system for earthquakes, floods, and cyclones. The system combines public hazard monitoring, household registration, building-profile analysis, machine-learning-based damage prediction, household vulnerability scoring, document-grounded safety guidance, and alert coordination. Earthquake monitoring and building-damage classification currently form the most complete operational component, while flood and cyclone support are represented through extensible hazard categories and the disaster-safety document corpus.
 
-Epicentral distance is calculated using the Haversine formula, and hypocentral distance is derived from epicentral distance and earthquake depth. Events outside the configured monitoring radius are discarded and the remaining events are normalized for the workflow. Event identifiers and normalized signatures prevent repeated processing of unchanged events. External provider calls use bounded retries.
+SentinelHome assigns separate responsibilities to its computational components. The XGBoost model estimates physical building damage using structural and earthquake-related features. A backend personalization layer combines physical damage risk with hazard severity and household vulnerability, including household size and vulnerable-member information, to calculate the final urgency score. The RAG component retrieves safety guidance from curated earthquake, flood, cyclone, and general-preparedness documents. Gemini converts the structured assessment and retrieved evidence into concise instructions while preserving source traceability. LangGraph coordinates assessment, silent termination, advice generation, alerting, confirmation observation, and escalation. This separation prevents the LLM from independently calculating or replacing the ML-based physical-risk prediction.
 
-\subsection{Damage Model and LLM Parameter Generation}
+The research question of this work is:
 
-The training notebook reports 1,599,952 records, 37 original columns, and five damage-grade classes. The saved runtime pipeline expects 26 features consisting of numeric structural features, categorical structural features, construction-material indicators, magnitude, MMI, epicentral distance, and hypocentral distance. Identifier and post-earthquake leakage fields are excluded. Numeric values are imputed and categorical values are one-hot encoded.
+\textit{\textbf{How can a multi-hazard disaster-warning system combine public hazard monitoring, building-damage prediction, household vulnerability, and retrieved safety guidance to produce personalized and actionable emergency communication?}}
 
-The user is not required to answer every model question. The backend constructs a structured Gemini prompt from registered building information, normalized earthquake data, controlled approximations, and hard-coded defaults. Gemini returns candidate parameters. The validation layer checks required fields, ranges, allowed categories, binary indicators, and construction-material consistency. Only validated parameters are sent to XGBoost. The model returns a damage grade and class probabilities.
+The primary contributions of this work are summarized as follows:
 
-\subsection{Household Vulnerability and Urgency}
+\begin{itemize}
 
-Physical building damage and household vulnerability are separate layers. Vulnerability inputs include household size, children, elderly members, disabled members, pregnancy, and medical needs. The urgency score is:
+\item A household-centred multi-hazard monitoring architecture for earthquakes, floods, and cyclones, with earthquake monitoring as the current operational path.
 
-\[
-U = 0.60D_p + 0.25H_s + 0.15V_h,
-\]
+\item A USGS-based earthquake-normalization pipeline using coordinate validation, Haversine distance calculation, hypocentral-distance derivation, event-signature tracking, and household-level hazard filtering.
 
-where $D_p$ is physical damage risk, $H_s$ is normalized hazard severity, and $V_h$ is household vulnerability. The score is clipped to $[0,1]$ and mapped to low, medium, or high urgency. Vulnerability weights are backend policy values and are not learned damage-model outputs.
+\item An XGBoost building-damage classification pipeline trained on 1,599,952 records, with the reported accuracy and weighted F$_1$ performance from the training notebook.
 
-\subsection{Retrieval-Augmented Safety Guidance}
+\item An LLM-assisted parameter-generation and validation layer that derives the model input contract from API data, registered household information, approximations, and controlled defaults.
 
-Safety PDFs are processed page by page, split into overlapping chunks, and indexed with source, page, hazard, and chunk metadata. LangChain, Voyage AI embeddings, Pinecone, hazard filtering, and Maximum Marginal Relevance are used for retrieval. The backend builds an assessment-specific query and passes the retrieved context, household facts, earthquake data, and assessment to Gemini.
+\item A page-aware RAG pipeline using LangChain, Voyage AI embeddings, Pinecone, hazard filtering, and Maximum Marginal Relevance retrieval, followed by grounded Gemini guidance generation.
 
-Gemini is instructed to produce concise guidance using only retrieved evidence and not to invent shelters, routes, medical instructions, or unsupported hazard facts. Plain-text and block-based responses are supported. If generation fails after retries, official retrieved excerpts are preserved in a degraded evidence-based fallback.
+\item A LangGraph response workflow that connects assessment, advice, alert persistence, confirmation, and escalation while preserving traceable state and errors.
 
-\subsection{LangGraph Agentic Workflow}
+\item A Flask and React/Vite full-stack system with contact management, MongoDB-compatible persistence, Telegram alert delivery, Twilio notification boundaries, household confirmation, and simulation isolation.
 
-The implemented LangGraph state carries household, earthquake, assessment, advice, alert, confirmation, escalation, errors, and execution-trace data. Its workflow is:
+\end{itemize}
 
-\begin{enumerate}
-\item \textbf{Assess}: generate and validate parameters, run XGBoost, and calculate urgency.
-\item \textbf{End Silent}: finish without an alert for low urgency.
-\item \textbf{Advise}: retrieve official guidance and generate grounded advice.
-\item \textbf{Alert}: persist and deliver the initial alert.
-\item \textbf{Observe}: wait for confirmation or detect timeout.
-\item \textbf{Escalate}: initiate configured relative calls for unanswered alerts.
-\end{enumerate}
+The current implementation includes household registration, primary and relative contact management, earthquake fetching, geospatial filtering, runtime LLM parameter generation, parameter validation, XGBoost inference, personalized urgency scoring, page-aware PDF processing, Pinecone-based RAG retrieval, grounded Gemini guidance, LangGraph execution, alert persistence, Telegram delivery, confirmation handling, and configured voice-escalation support. The protected simulation console exercises the same intelligence pipeline using isolated simulation state so that demonstration data does not modify live household monitoring.
 
-LangGraph controls transitions while separate services perform inference, retrieval, LLM generation, persistence, and notification-provider communication. The protected simulation console exposes each stage, request, response, status, and error.
+Production authentication and authorization, inbound Telegram confirmation replies, live flood and cyclone damage models, shelter or route databases, and complete background-job hardening remain future work. Automatic voice escalation also depends on valid Twilio configuration and provider availability.
 
-\subsection{Notification, Persistence, and Simulation Isolation}
-
-The primary contact receives the initial alert. Telegram supports full free-form safety messages, while Twilio remains available for compatible WhatsApp and voice configurations. The household dashboard provides a safe-confirmation action that prevents escalation. Enabled relatives are called sequentially after timeout, and delivery records prevent duplicate calls.
-
-The storage abstraction supports MongoDB and retains memory mode for local development. The protected simulation uses deep-copied households and simulation-tagged alerts. It can execute the real ML, RAG, Gemini, LangGraph, alert, and Telegram paths without changing production household risk, safety, assessment, or monitoring state. Simulation alerts are excluded from normal dashboards, alert APIs, and automatic escalation.
-
-\subsection{Current Limitations}
-
-Production authentication, inbound Telegram confirmation replies, live flood and cyclone damage models, shelter or route databases, and full background-job hardening remain future work. Automatic voice escalation depends on valid Twilio configuration. The current implementation demonstrates a complete earthquake household-response workflow and provides an extensible foundation for additional hazards.
+The remainder of this paper is organized as follows. Section II presents the methodology of the implemented system, including personalized damage prediction, retrieval-augmented disaster guidance, and agentic alert coordination. Section III presents the experimental results and system evaluation. Section IV concludes the paper and discusses future research directions.
 
