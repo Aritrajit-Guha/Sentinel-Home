@@ -514,6 +514,7 @@ export const Desktop = () => {
               <span>EN</span>
               <span className="chevron" aria-hidden="true">⌄</span>
             </button>
+            <a className="nav-login" href="/login">Sign in</a>
             <a className="nav-cta" href="/register">
               Get started
               <ArrowRight size={17} strokeWidth={2} />
