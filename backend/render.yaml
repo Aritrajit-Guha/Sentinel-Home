@@ -11,3 +11,9 @@ services:
         value: sentinelhome
       - key: MONGO_URI
         sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: FRONTEND_ORIGIN
+        sync: false

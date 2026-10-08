@@ -3,6 +3,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 async function request(path, options = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     ...options,
   });
   const data = await res.json().catch(() => ({}));
@@ -12,6 +13,15 @@ async function request(path, options = {}) {
   }
   return data;
 }
+
+export function registerAccount(email, password) {
+  return request("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) });
+}
+export function loginAccount(email, password) {
+  return request("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+}
+export function logoutAccount() { return request("/api/auth/logout", { method: "POST" }); }
+export function getCurrentUser() { return request("/api/auth/me"); }
 
 // Households
 export function geocodeAddress(address) {
@@ -24,6 +34,8 @@ export function registerHousehold(payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export function getMyHousehold() { return request("/api/households/me"); }
 
 export function getHousehold(householdId) {
   return request(`/api/households/${householdId}`);

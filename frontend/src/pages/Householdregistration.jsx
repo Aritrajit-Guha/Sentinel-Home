@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { registerHousehold } from '../api/client'
+import { getCurrentUser, registerAccount, registerHousehold } from '../api/client'
 import {
   ShieldCheck,
   ChevronLeft,
@@ -65,7 +65,6 @@ const ROOF_TYPE_OPTIONS = [
   { value: 'Bamboo/Timber-Light roof', label: 'Bamboo/Timber — Light' },
   { value: 'Bamboo/Timber-Heavy roof', label: 'Bamboo/Timber — Heavy' },
   { value: 'RCC/RB/RBC', label: 'RCC' },
-  { value: 'Other', label: 'Other' },
 ]
 
 // NOTE: "Not applicable" must remain selectable — many buildings have no
@@ -80,7 +79,9 @@ const OTHER_FLOOR_TYPE_OPTIONS = [
 ]
 
 const POSITION_OPTIONS = [
-  { value: 'Attached', label: 'Attached' },
+  { value: 'Attached-1 side', label: 'Attached — 1 side' },
+  { value: 'Attached-2 side', label: 'Attached — 2 sides' },
+  { value: 'Attached-3 side', label: 'Attached — 3 sides' },
   { value: 'Not attached', label: 'Not attached' },
 ]
 
@@ -96,11 +97,14 @@ const LAND_SURFACE_OPTIONS = [
 const PLAN_CONFIGURATION_OPTIONS = [
   { value: 'Rectangular', label: 'Rectangular' },
   { value: 'Square', label: 'Square' },
-  { value: 'L-Shape', label: 'L-Shape' },
-  { value: 'T-Shape', label: 'T-Shape' },
-  { value: 'U-Shape', label: 'U-Shape' },
+  { value: 'L-shape', label: 'L-Shape' },
+  { value: 'T-shape', label: 'T-Shape' },
+  { value: 'U-shape', label: 'U-Shape' },
   { value: 'Multi-projected', label: 'Multi-projected' },
   { value: 'Others', label: 'Other' },
+  { value: 'Building with Central Courtyard', label: 'Central courtyard' },
+  { value: 'E-shape', label: 'E-Shape' },
+  { value: 'H-shape', label: 'H-Shape' },
 ]
 
 // NOTE: superstructure material is multi-select — a building can be built
@@ -970,6 +974,8 @@ export default function HouseholdRegistration() {
   const [formData, setFormData] = useState(initialFormData)
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [accountEmail, setAccountEmail] = useState('')
+  const [accountPassword, setAccountPassword] = useState('')
 
   const isReviewStep = currentStep === STEP_LABELS.length - 1
 
@@ -1055,6 +1061,15 @@ export default function HouseholdRegistration() {
 
     setIsSubmitting(true)
     try {
+      if (!accountEmail || accountPassword.length < 8) throw new Error('Enter an email and a password of at least 8 characters before completing registration.')
+      try {
+        await registerAccount(accountEmail, accountPassword)
+      } catch (accountError) {
+        // A user who already signed in may resume an interrupted household
+        // setup. Only continue when the existing cookie proves their identity.
+        if (!accountError.message.toLowerCase().includes('already exists')) throw accountError
+        await getCurrentUser()
+      }
       const result = await registerHousehold(payload)
       navigate(`/dashboard/${result.household.id}`)
     } finally {
@@ -2001,6 +2016,15 @@ export default function HouseholdRegistration() {
           <ProgressIndicator steps={STEP_LABELS} currentStep={currentStep} />
 
           <div className="hr-form-card">
+            <div className="account-registration-panel">
+              <span className="eyebrow">YOUR PRIVATE ACCOUNT</span>
+              <p>Create this once to return to your household dashboard without registering again.</p>
+              <div className="account-registration-fields">
+                <label>Email<input type="email" value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" /></label>
+                <label>Password<input type="password" value={accountPassword} onChange={(e) => setAccountPassword(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" /></label>
+              </div>
+              <small>Already registered? <a href="/login">Sign in instead</a></small>
+            </div>
             {renderStep()}
 
             <div className="hr-nav-row">

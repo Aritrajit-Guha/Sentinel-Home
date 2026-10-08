@@ -33,12 +33,27 @@ def assess_node(state: SentinelState) -> SentinelState:
         detail="The parameter payload passed validation and is ready for XGBoost.",
         response={"parameters": assessment.get("parameters", {}), "valid": True},
     )
+    traced["trace"][-1]["provider"] = (assessment.get("parameter_generation") or {}).get("provider", "Gemini")
+    traced["trace"][-1]["source"] = (assessment.get("parameter_generation") or {}).get("source", "live_provider")
+    traced["trace"][-1]["upstream"] = "hazard_api"
     traced = trace_event(
         traced,
         stage="ml_inference",
         status="completed",
         title="XGBoost damage and urgency assessment",
         request={"validated_parameters": assessment.get("parameters", {})},
-        response={key: value for key, value in assessment.items() if key != "parameters"},
+        response={key: value for key, value in assessment.items() if key not in {"parameters", "parameter_generation"}},
     )
+    traced["trace"][-1]["provider"] = "local XGBoost model"
+    traced["trace"][-1]["source"] = "live_model"
+    traced["trace"][-1]["upstream"] = "parameter_generation"
+    traced = trace_event(
+        traced,
+        stage="urgency_scoring",
+        status="completed",
+        title="Personalized urgency score calculated",
+        request={"assessment": {"physical_damage_risk": assessment.get("physical_damage_risk"), "hazard_score": assessment.get("hazard_score"), "vulnerability_score": assessment.get("vulnerability_score")}},
+        response={"breakdown": assessment.get("urgency_breakdown"), "urgency_score": assessment.get("urgency_score"), "urgency_level": assessment.get("urgency_level")},
+    )
+    traced["trace"][-1]["upstream"] = "ml_inference"
     return {**traced, "assessment": assessment, "silent": assessment.get("urgency_level") == "low"}

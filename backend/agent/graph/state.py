@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from typing import Any, TypedDict
+from datetime import datetime, timezone
+from uuid import uuid4
 
 
 class SentinelState(TypedDict, total=False):
@@ -36,9 +38,12 @@ def trace_event(
 
     events = list(state.get("trace", []))
     event = {
+        "event_id": str(uuid4()),
         "stage": stage,
         "status": status,
         "title": title,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "execution_mode": "live",
     }
     if detail is not None:
         event["detail"] = detail

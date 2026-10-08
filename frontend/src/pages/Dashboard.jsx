@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { confirmSafe, getHouseholdStatus } from '../api/client'
+import { confirmSafe, getHouseholdStatus, getMyHousehold, logoutAccount } from '../api/client'
 
 function Score({ label, value, tone }) {
   return <div className="dashboard-score"><span>{label}</span><strong className={tone || ''}>{value ?? '—'}</strong></div>
@@ -19,16 +19,18 @@ function AlertCard({ alert, onConfirm, confirming }) {
 }
 
 export default function Dashboard() {
-  const { householdId } = useParams()
+  const { householdId: routeHouseholdId } = useParams()
+  const [householdId, setHouseholdId] = useState(routeHouseholdId || null)
   const [status, setStatus] = useState(null), [error, setError] = useState(null), [confirming, setConfirming] = useState(false)
-  const loadStatus = useCallback(async () => { try { setStatus(await getHouseholdStatus(householdId)); setError(null) } catch (err) { setError(err.message) } }, [householdId])
-  useEffect(() => { loadStatus(); const timer = setInterval(loadStatus, 30000); return () => clearInterval(timer) }, [loadStatus])
+  const loadStatus = useCallback(async () => { try { const id = householdId || (await getMyHousehold()).household.id; setHouseholdId(id); setStatus(await getHouseholdStatus(id)); setError(null) } catch (err) { setError(err.message) } }, [householdId])
+  useEffect(() => { const initial = window.setTimeout(loadStatus, 0); const timer = setInterval(loadStatus, 30000); return () => { clearTimeout(initial); clearInterval(timer) } }, [loadStatus])
   async function handleConfirm() { setConfirming(true); try { await confirmSafe(householdId); await loadStatus() } catch (err) { setError(err.message) } finally { setConfirming(false) } }
   if (error) return <main className="dashboard-shell"><div className="dashboard-error">{error}</div></main>
   if (!status) return <main className="dashboard-shell"><div className="dashboard-loading"><span className="live-dot" /> Connecting to SentinelHome monitoring…</div></main>
   const assessment = status.last_assessment || {}, active = status.active_alerts || []
+  async function handleLogout() { await logoutAccount(); window.location.href = '/login' }
   return <main className="dashboard-shell">
-    <header className="dashboard-hero"><div><Link className="dashboard-back" to="/">← SentinelHome</Link><span className="dashboard-kicker">HOUSEHOLD COMMAND CENTER</span><h1>Your safety dashboard</h1><p>Live protection status, risk intelligence and response guidance for your household.</p></div><div className={`dashboard-monitor-pill ${status.safe ? 'monitor-safe' : 'monitor-alert'}`}><span className="live-dot" />{status.safe ? 'HOUSEHOLD SAFE' : 'MONITORING ACTIVE'}</div></header>
+    <header className="dashboard-hero"><div><Link className="dashboard-back" to="/">← SentinelHome</Link><span className="dashboard-kicker">HOUSEHOLD COMMAND CENTER</span><h1>Your safety dashboard</h1><p>Live protection status, risk intelligence and response guidance for your household.</p></div><div><div className={`dashboard-monitor-pill ${status.safe ? 'monitor-safe' : 'monitor-alert'}`}><span className="live-dot" />{status.safe ? 'HOUSEHOLD SAFE' : 'MONITORING ACTIVE'}</div><button className="dashboard-logout" onClick={handleLogout}>Sign out</button></div></header>
     <section className="dashboard-grid dashboard-overview"><article className="dashboard-glass dashboard-status-card"><div className="dashboard-card-title"><span>Current protection state</span><strong>{status.monitoring_state || 'monitoring'}</strong></div><div className="dashboard-risk-orb"><div><small>FINAL URGENCY</small><strong>{status.risk_score ?? '—'}</strong><span>{status.risk_level || 'not assessed'}</span></div></div><div className="dashboard-status-copy"><p>{status.safe ? 'Your household has confirmed safety. Escalation is paused.' : 'SentinelHome is watching for nearby hazards and will notify your configured contact.'}</p><small>Last update: {status.updated_at ? new Date(status.updated_at).toLocaleString() : 'live'}</small></div></article>
       <article className="dashboard-glass dashboard-intelligence"><div className="dashboard-card-title"><span>Latest intelligence</span><strong>{assessment.hazard || 'Earthquake model'}</strong></div><div className="dashboard-score-grid"><Score label="Damage grade" value={assessment.damage_grade} /><Score label="Physical risk" value={assessment.physical_damage_risk} tone="score-blue" /><Score label="Vulnerability" value={assessment.vulnerability_score} tone="score-purple" /><Score label="Urgency" value={assessment.urgency_score} tone="score-orange" /></div><div className="dashboard-progress"><span style={{ width: `${Math.max(0, Math.min(100, (Number(status.risk_score) || 0) * 100))}%` }} /></div><p className="dashboard-muted">Risk score is calculated from building damage, hazard severity and household vulnerability.</p></article></section>
     {active.length > 0 ? <section><div className="dashboard-section-heading"><span className="dashboard-kicker">RESPONSE CENTER</span><h2>Active alert{active.length > 1 ? 's' : ''}</h2></div>{active.map((alert) => <AlertCard alert={alert} onConfirm={handleConfirm} confirming={confirming} key={alert.id} />)}</section> : <section className="dashboard-glass dashboard-clear"><span className="clear-icon">✓</span><div><span className="dashboard-kicker">ALL CLEAR</span><h2>No active alerts</h2><p>Your household is currently being monitored. We’ll surface guidance here when a nearby event needs your attention.</p></div></section>}

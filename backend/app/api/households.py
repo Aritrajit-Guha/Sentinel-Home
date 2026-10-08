@@ -3,7 +3,8 @@ from uuid import uuid4
 
 from flask import Blueprint, jsonify, request
 
-from app.core.store import alerts, households
+from app.core.auth import current_user, owns_household
+from app.core.store import alerts, households, users
 from app.models.household import validate_household
 from app.services.alert_service import is_simulation_alert, risk_level_for
 from app.services.geocoding_service import geocode
@@ -12,6 +13,18 @@ from app.services.contact_service import prepare_contacts
 
 
 households_bp = Blueprint("households", __name__, url_prefix="/api/households")
+
+
+@households_bp.get("/me")
+def my_household():
+    user = current_user()
+    if not user:
+        return jsonify({"status": "error", "message": "Authentication required"}), 401
+    household_id = user.get("household_id")
+    household = households.get(household_id) if household_id else None
+    if household is None:
+        return jsonify({"status": "error", "message": "No household is registered for this account"}), 404
+    return jsonify({"status": "ok", "household": household})
 
 
 @households_bp.get("/geocode")
@@ -69,6 +82,8 @@ def register_household():
     errors = validate_household(payload)
     if errors:
         return jsonify({"status": "error", "errors": errors}), 400
+    if current_user() is None:
+        return jsonify({"status": "error", "message": "Create or sign in to an account before registering a household"}), 401
 
     household_id = str(uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -87,6 +102,13 @@ def register_household():
         "created_at": now,
         "updated_at": now,
     }
+    user = current_user()
+    if user:
+        if user.get("household_id"):
+            return jsonify({"status": "error", "message": "This account already has a primary household"}), 409
+        household["owner_id"] = user["id"]
+        user["household_id"] = household_id
+        users[user["id"]] = user
     households[household_id] = household
     return jsonify({"status": "registered", "household": household}), 201
 
@@ -96,6 +118,11 @@ def get_household(household_id):
     household = households.get(household_id)
     if household is None:
         return jsonify({"status": "error", "message": "Household not found"}), 404
+    user = current_user()
+    if household.get("owner_id") and not user:
+        return jsonify({"status": "error", "message": "Authentication required"}), 401
+    if user and household.get("owner_id") and not owns_household(household_id, user):
+        return jsonify({"status": "error", "message": "Household access denied"}), 403
     return jsonify({"status": "ok", "household": household})
 
 
@@ -104,6 +131,11 @@ def get_household_status(household_id):
     household = households.get(household_id)
     if household is None:
         return jsonify({"status": "error", "message": "Household not found"}), 404
+    user = current_user()
+    if household.get("owner_id") and not user:
+        return jsonify({"status": "error", "message": "Authentication required"}), 401
+    if user and household.get("owner_id") and not owns_household(household_id, user):
+        return jsonify({"status": "error", "message": "Household access denied"}), 403
 
     # Controlled simulations are visible only in the internal simulation
     # console; they must never change the user's production dashboard state.
@@ -272,6 +304,11 @@ def update_household(household_id):
     household = households.get(household_id)
     if household is None:
         return jsonify({"status": "error", "message": "Household not found"}), 404
+    user = current_user()
+    if household.get("owner_id") and not user:
+        return jsonify({"status": "error", "message": "Authentication required"}), 401
+    if user and household.get("owner_id") and not owns_household(household_id, user):
+        return jsonify({"status": "error", "message": "Household access denied"}), 403
 
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):

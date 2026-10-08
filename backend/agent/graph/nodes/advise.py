@@ -164,10 +164,12 @@ def advise_node(state: SentinelState) -> SentinelState:
         stage="rag_retrieval",
         status="completed" if advice.get("retrieved_guidance") else "degraded",
         title="Pinecone safety-guidance retrieval",
-        request={"query": advice.get("query"), "top_k": len(advice.get("retrieved_guidance", []))},
+        request={"query": advice.get("query"), "top_k": len(advice.get("retrieved_guidance", [])), "embedding_provider": "Voyage AI", "vector_store": "Pinecone"},
         response={"sources": advice.get("sources", []), "excerpts": advice.get("retrieved_guidance", [])},
         error=advice.get("generation_error") if advice.get("degraded") else None,
     )
+    traced["trace"][-1]["source"] = "live_rag"
+    traced["trace"][-1]["upstream"] = "urgency_scoring"
     traced = trace_event(
         traced,
         stage="guidance_generation",
@@ -177,4 +179,7 @@ def advise_node(state: SentinelState) -> SentinelState:
         response={"message": advice.get("message"), "grounded": advice.get("grounded", False)},
         error=advice.get("generation_error"),
     )
+    traced["trace"][-1]["provider"] = "Gemini"
+    traced["trace"][-1]["source"] = "live_provider" if not advice.get("degraded") else "fallback"
+    traced["trace"][-1]["upstream"] = "rag_retrieval"
     return {**traced, "advice": advice}

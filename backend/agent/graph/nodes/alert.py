@@ -6,6 +6,7 @@ from agent.graph.state import SentinelState, append_error, trace_event
 from app.core.config import settings
 from app.services.delivery_service import send_alert_whatsapp
 from app.services.alert_service import create_alert
+from app.core.store import alerts
 
 
 def alert_node(state: SentinelState) -> SentinelState:
@@ -29,7 +30,10 @@ def alert_node(state: SentinelState) -> SentinelState:
             alert = send_alert_whatsapp(household["id"], alert)
         except Exception as exc:
             alert = {**alert, "delivery_status": "failed", "delivery_error": str(exc)}
-            failed_state = trace_event(state, stage="notification", status="failed", title="Telegram/notification delivery", error=str(exc))
+            failed_state = trace_event(state, stage="notification", status="failed", title="Telegram notification delivery", error=str(exc), response={"channel": "telegram", "delivery_status": "failed"})
+            failed_state["trace"][-1]["provider"] = "Telegram"
+            failed_state["trace"][-1]["source"] = "live_provider"
+            failed_state["trace"][-1]["upstream"] = "alert_persistence"
             return append_error({**failed_state, "alert": alert}, f"Notification delivery failed: {exc}")
 
         delivery = (alert.get("deliveries") or [])[-1:]
@@ -37,19 +41,25 @@ def alert_node(state: SentinelState) -> SentinelState:
             state,
             stage="notification",
             status="completed",
-            title="Alert delivered to configured notification channel",
+            title="Alert delivered to Telegram",
             request={"channel": alert.get("delivery_channel"), "recipient": delivery[0].get("phone") if delivery else None},
             response={"delivery_status": alert.get("delivery_status"), "provider_id": alert.get("delivery_id")},
         )
+        state["trace"][-1]["provider"] = "Telegram"
+        state["trace"][-1]["source"] = "live_provider"
+        state["trace"][-1]["upstream"] = "alert_persistence"
 
     state = trace_event(
         state,
         stage="alert_persistence",
         status="completed",
-        title="Alert saved to MongoDB",
+        title="Alert persisted",
         request={"risk_score": assessment.get("urgency_score"), "event_id": state.get("earthquake", {}).get("id")},
         response={"alert_id": alert.get("id"), "status": alert.get("status"), "delivery_status": alert.get("delivery_status")},
     )
+    state["trace"][-1]["provider"] = "MongoDB" if alerts.mode == "mongo" else "in-memory store"
+    state["trace"][-1]["source"] = "live_persistence"
+    state["trace"][-1]["upstream"] = "guidance_generation"
 
     # create_alert persists safe=False, but the household object carried in
     # the graph state is a copy from before persistence. Keep the graph state

@@ -58,6 +58,8 @@ def _run(job_id: str, event_id: str) -> None:
             "title": "Controlled earthquake fixture loaded",
             "request": {"source": "simulation_fixture", "event_id": event_id},
             "response": _fixture(event_id),
+            "execution_mode": "fixture",
+            "source": "controlled_simulation_fixture",
         })
         result = run_monitoring_cycle(
             earthquake_data=_fixture(event_id),

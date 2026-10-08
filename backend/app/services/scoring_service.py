@@ -52,16 +52,19 @@ def urgency_level_for(score: float) -> str:
 
 def assess_household_risk(household: dict, earthquake: dict) -> dict:
     """Generate model inputs, run ML, and calculate urgency."""
-    parameters = generate_parameters_for_household(household, earthquake)
+    parameters, parameter_meta = generate_parameters_for_household(
+        household, earthquake, return_metadata=True
+    )
     damage_result = predict_building_damage(parameters)
     physical_risk = _physical_damage_risk(damage_result)
     hazard_score = _hazard_severity(earthquake)
     vulnerability_score = _vulnerability_score(household)
+    physical_contribution = 0.60 * physical_risk
+    hazard_contribution = 0.25 * hazard_score
+    vulnerability_contribution = 0.15 * vulnerability_score
     urgency_score = min(
         1.0,
-        0.60 * physical_risk
-        + 0.25 * hazard_score
-        + 0.15 * vulnerability_score,
+        physical_contribution + hazard_contribution + vulnerability_contribution,
     )
 
     return {
@@ -73,4 +76,11 @@ def assess_household_risk(household: dict, earthquake: dict) -> dict:
         "vulnerability_score": round(vulnerability_score, 4),
         "urgency_score": round(urgency_score, 4),
         "urgency_level": urgency_level_for(urgency_score),
+        "parameter_generation": parameter_meta,
+        "urgency_breakdown": {
+            "physical_risk": {"weight": 0.60, "value": physical_risk, "contribution": round(physical_contribution, 4)},
+            "hazard": {"weight": 0.25, "value": hazard_score, "contribution": round(hazard_contribution, 4)},
+            "vulnerability": {"weight": 0.15, "value": vulnerability_score, "contribution": round(vulnerability_contribution, 4)},
+            "formula": "min(1, 0.60*physical_risk + 0.25*hazard_score + 0.15*vulnerability_score)",
+        },
     }

@@ -86,6 +86,8 @@ def _fallback_parameters(household: dict, earthquake: dict) -> dict:
 def generate_parameters_for_household(
     household: dict,
     earthquake: dict,
+    *,
+    return_metadata: bool = False,
 ) -> dict:
     """Convert household and earthquake data into validated model inputs."""
 
@@ -93,10 +95,13 @@ def generate_parameters_for_household(
         household=household,
         earthquake=earthquake,
     )
+    metadata = {"provider": "Gemini", "source": "live_provider", "retries": 0}
     try:
         candidate = generate_model_parameters(prompt)
-    except Exception:
-        return _fallback_parameters(household, earthquake)
+    except Exception as exc:
+        metadata = {"provider": "deterministic fallback", "source": "fallback", "error": str(exc)}
+        result = _fallback_parameters(household, earthquake)
+        return (result, metadata) if return_metadata else result
 
     # Known household-provided values are ground truth: they always win
     # over Gemini's guess. Gemini is only meant to fill in what the
@@ -111,4 +116,5 @@ def generate_parameters_for_household(
             superstructure_flags_from_materials(household["superstructure_materials"])
         )
 
-    return validate_model_parameters(candidate)
+    result = validate_model_parameters(candidate)
+    return (result, metadata) if return_metadata else result

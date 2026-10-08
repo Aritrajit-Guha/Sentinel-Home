@@ -1,6 +1,7 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 from app.api.admin import admin_bp
+from app.api.auth import auth_bp
 from app.api.alerts import alerts_bp
 from app.api.households import households_bp
 from app.core.config import settings
@@ -11,6 +12,12 @@ from app.scheduling.scheduler import start_scheduler
 def create_app():
     """Create the Flask application without starting background work."""
     flask_app = Flask(__name__)
+    flask_app.secret_key = settings.SESSION_SECRET
+    flask_app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SECURE=settings.SESSION_COOKIE_SECURE,
+        SESSION_COOKIE_SAMESITE="None" if settings.SESSION_COOKIE_SECURE else "Lax",
+    )
 
     @flask_app.get("/")
     def home():
@@ -21,14 +28,24 @@ def create_app():
 
     @flask_app.after_request
     def add_cors_headers(response):
-        response.headers["Access-Control-Allow-Origin"] = settings.FRONTEND_ORIGIN
+        request_origin = request.headers.get("Origin")
+        response.headers["Access-Control-Allow-Origin"] = (
+            request_origin if settings.FRONTEND_ORIGIN == "*" and request_origin else settings.FRONTEND_ORIGIN
+        )
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, OPTIONS"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
         return response
+
+    @flask_app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            return ("", 204)
 
     flask_app.register_blueprint(households_bp)
     flask_app.register_blueprint(alerts_bp)
     flask_app.register_blueprint(admin_bp)
+    flask_app.register_blueprint(auth_bp)
 
     if settings.ENABLE_SCHEDULER:
         start_scheduler()

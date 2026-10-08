@@ -285,6 +285,7 @@ import { Route, Routes } from 'react-router-dom'
 import HouseholdRegistration from './pages/Householdregistration'
 import Dashboard from './pages/Dashboard'
 import Simulation from './pages/Simulation'
+import Login from './pages/Login'
 
 const backgroundImage = '/assets/background-image.jpg'
 const earthImage = '/assets/earth-image.png'
@@ -560,6 +561,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Desktop />} />
       <Route path="/register" element={<HouseholdRegistration />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/dashboard/:householdId" element={<Dashboard />} />
       <Route path="/internal/earthquake-simulation" element={<Simulation />} />
       <Route path="*" element={<Desktop />} />

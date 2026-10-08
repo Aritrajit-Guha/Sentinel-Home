@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request
 
 from app.core.store import alerts, households
+from app.core.auth import current_user, owns_household
 from app.services import notification_service
 from app.services.alert_service import create_alert, get_alert, is_simulation_alert
 from app.services.alert_service import update_alert
@@ -77,16 +78,27 @@ def confirm_safe(household_id):
     household = households.get(household_id)
     if household is None:
         return jsonify({"status": "error", "message": "Household not found"}), 404
+    user = current_user()
+    if household.get("owner_id") and not user:
+        return jsonify({"status": "error", "message": "Authentication required"}), 401
+    if user and household.get("owner_id") and not owns_household(household_id, user):
+        return jsonify({"status": "error", "message": "Household access denied"}), 403
 
-    household["safe"] = True
-    household["safe_at"] = datetime.now(timezone.utc).isoformat()
-
+    safe_at = datetime.now(timezone.utc).isoformat()
     household_alerts = alerts.get(household_id, [])
+    has_production_alert = any(
+        alert["status"] == "active" and not is_simulation_alert(alert)
+        for alert in household_alerts
+    )
+    if has_production_alert:
+        household["safe"] = True
+        household["safe_at"] = safe_at
     for alert in household_alerts:
-        if alert["status"] == "active" and not is_simulation_alert(alert):
+        if alert["status"] == "active":
             alert["status"] = "confirmed"
-            alert["confirmed_at"] = household["safe_at"]
-    households[household_id] = household
+            alert["confirmed_at"] = safe_at
+    if has_production_alert:
+        households[household_id] = household
     alerts[household_id] = household_alerts
 
     return jsonify({

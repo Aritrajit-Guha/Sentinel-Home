@@ -43,6 +43,8 @@ class Settings:
     ENABLE_SCHEDULER = os.getenv("ENABLE_SCHEDULER", "false").lower() == "true"
     MONITOR_INTERVAL_MINUTES = int(os.getenv("MONITOR_INTERVAL_MINUTES", "5"))
     SIMULATION_PASSWORD = os.getenv("SIMULATION_PASSWORD", "")
+    SESSION_SECRET = os.getenv("SESSION_SECRET", "sentinelhome-local-session-secret")
+    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
     def simulation_password_matches(self, candidate: str) -> bool:
         return bool(self.SIMULATION_PASSWORD) and hmac.compare_digest(
