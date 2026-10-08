@@ -429,33 +429,6 @@ export const Desktop = () => {
           </div>
         </div>
 
-        <div className="flood-water" aria-hidden="true">
-          <svg
-            className="flood-water-svg"
-            viewBox="0 0 1920 120"
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <path
-                id="flood-wave-back-tile"
-                d="M0,60 C 240,25 240,95 480,60 C 720,25 720,95 960,60 C1200,25 1200,95 1440,60 C1680,25 1680,95 1920,60 V120 H0 Z"
-              />
-              <path
-                id="flood-wave-front-tile"
-                d="M0,75 C 240,45 240,105 480,75 C 720,45 720,105 960,75 C1200,45 1200,105 1440,75 C1680,45 1680,105 1920,75 V120 H0 Z"
-              />
-            </defs>
-            <g className="flood-wave flood-wave-back">
-              <use href="#flood-wave-back-tile" xlinkHref="#flood-wave-back-tile" x="0" />
-              <use href="#flood-wave-back-tile" xlinkHref="#flood-wave-back-tile" x="1920" />
-            </g>
-            <g className="flood-wave flood-wave-front">
-              <use href="#flood-wave-front-tile" xlinkHref="#flood-wave-front-tile" x="0" />
-              <use href="#flood-wave-front-tile" xlinkHref="#flood-wave-front-tile" x="1920" />
-            </g>
-          </svg>
-        </div>
-
         <img
           className="workflow-card"
           alt="Workflow card"

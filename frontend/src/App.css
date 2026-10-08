@@ -813,7 +813,7 @@ body,
     transform: scale(1) translate3d(0, 0, 0);
   }
   to {
-    transform: scale(1.13) translate3d(-14px, 8px, 0);
+    transform: scale(1.04) translate3d(-5px, 3px, 0);
   }
 }
 
@@ -826,11 +826,13 @@ body,
   width: 480px;
   height: 560px;
   background: url('/assets/background-image.jpg') -1440px -60px / 1920px auto no-repeat;
-  filter: url(#tornado-churn);
+  /* Keep the funnel stable and readable; the original turbulence filter
+     caused a strong distortion/motion-blur effect on the landing page. */
+  filter: none;
   -webkit-mask-image: radial-gradient(ellipse 46% 50% at 56% 48%, #000 40%, transparent 100%);
   mask-image: radial-gradient(ellipse 46% 50% at 56% 48%, #000 40%, transparent 100%);
   transform-origin: 56% 92%;
-  animation: funnel-sway 7s ease-in-out infinite alternate;
+  animation: funnel-sway 18s ease-in-out infinite alternate;
 }
 
 @keyframes funnel-sway {
@@ -850,12 +852,12 @@ body,
   top: -260px;
   width: 900px;
   height: 900px;
-  filter: url(#cloud-texture);
-  opacity: 0.6;
+  filter: none;
+  opacity: 0.38;
   pointer-events: none;
   -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 68%);
   mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 68%);
-  animation: storm-rotate 80s linear infinite reverse;
+  animation: storm-rotate 150s linear infinite reverse;
 }
 
 @keyframes storm-rotate {
@@ -973,7 +975,7 @@ body,
   inset: -20% -10%;
   overflow: hidden;
   pointer-events: none;
-  opacity: 0.3;
+  opacity: 0.12;
   transform: rotate(14deg);
   -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.25), #000 55%);
   mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.25), #000 55%);
@@ -1001,8 +1003,8 @@ body,
   height: calc(100% + 300px);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8 0.009' numOctaves='1' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.86  0 0 0 0 0.93  0 0 0 0 1  9 0 0 0 -5.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23f%29'/%3E%3C/svg%3E");
   background-size: 300px 300px;
-  opacity: 0.6;
-  animation: rain-slide-b 0.8s linear infinite;
+  opacity: 0.35;
+  animation: rain-slide-b 1.2s linear infinite;
 }
 
 @keyframes rain-slide-a {
@@ -1149,59 +1151,6 @@ body,
 .bolt-core {
   stroke: #ffffff;
   stroke-width: 2.6;
-}
-
-/* Flood water strip along the bottom edge: two wave layers scrolling at
-   different speeds (parallax) plus a slow overall tide-like rise/fall.
-   Kept to a thin band so it reads as encroaching water at the scene's
-   edge without covering the hero text or nav. */
-.flood-water {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 3;
-  height: 96px;
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0.65;
-  animation: flood-tide 11s ease-in-out infinite;
-}
-
-.flood-water::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    rgba(9, 66, 110, 0.85),
-    rgba(9, 66, 110, 0.15) 80%,
-    rgba(9, 66, 110, 0) 100%
-  );
-}
-
-.flood-water-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.flood-wave-back {
-  animation: flood-scroll 16s linear infinite;
-}
-
-.flood-wave-back use {
-  fill: rgba(20, 110, 190, 0.55);
-}
-
-.flood-wave-front {
-  animation: flood-scroll 10s linear infinite reverse;
-}
-
-.flood-wave-front use {
-  fill: rgba(23, 150, 230, 0.75);
 }
 
 .desktop .workflow-card {
@@ -1672,10 +1621,7 @@ body,
   .storm-rain::after,
   .fire-glow,
   .lightning-glow,
-  .lightning-bolt,
-  .flood-water,
-  .flood-wave-back,
-  .flood-wave-front {
+  .lightning-bolt {
     animation: none;
   }
 
