@@ -17,3 +17,7 @@ services:
         value: "true"
       - key: FRONTEND_ORIGIN
         sync: false
+      - key: ENABLE_SCHEDULER
+        value: "true"
+      - key: MONITOR_INTERVAL_MINUTES
+        value: "30"

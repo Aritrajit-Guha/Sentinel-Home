@@ -41,7 +41,7 @@ class Settings:
     FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "*")
     APP_ENV = os.getenv("APP_ENV", "development")
     ENABLE_SCHEDULER = os.getenv("ENABLE_SCHEDULER", "false").lower() == "true"
-    MONITOR_INTERVAL_MINUTES = int(os.getenv("MONITOR_INTERVAL_MINUTES", "5"))
+    MONITOR_INTERVAL_MINUTES = int(os.getenv("MONITOR_INTERVAL_MINUTES", "30"))
     SIMULATION_PASSWORD = os.getenv("SIMULATION_PASSWORD", "")
     SESSION_SECRET = os.getenv("SESSION_SECRET", "sentinelhome-local-session-secret")
     SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
