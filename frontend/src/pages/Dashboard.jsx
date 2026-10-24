@@ -1,39 +1,103 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { confirmSafe, getHouseholdStatus, getMyHousehold, logoutAccount } from '../api/client'
+import { confirmSafe, getHousehold, getHouseholdStatus, getMyHousehold, logoutAccount } from '../api/client'
 
-function Score({ label, value, tone }) {
-  return <div className="dashboard-score"><span>{label}</span><strong className={tone || ''}>{value ?? '—'}</strong></div>
+function formatDate(value, empty = 'Not recorded') {
+  if (!value) return empty
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? empty : date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+function timeAgo(value) {
+  if (!value) return 'No check recorded yet'
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000))
+  if (seconds < 60) return `${seconds}s ago`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+  return `${Math.floor(seconds / 86400)}d ago`
+}
+
+function countdown(nextRunAt, now) {
+  if (!nextRunAt) return 'Not scheduled'
+  const remaining = Math.max(0, Math.floor((new Date(nextRunAt).getTime() - now) / 1000))
+  const minutes = Math.floor(remaining / 60)
+  const seconds = remaining % 60
+  return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, '0')}s` : `${seconds}s`
+}
+
+function MetricCard({ eyebrow, value, detail, tone = 'blue' }) {
+  return <article className={`bright-metric metric-${tone}`}><span className="bright-eyebrow">{eyebrow}</span><strong>{value}</strong><small>{detail}</small></article>
+}
+
+function StatusDot({ status }) { return <span className={`check-dot check-${status}`} aria-hidden="true" /> }
+
+function CheckRow({ check }) {
+  const hasEvent = check.nearby_earthquake_count > 0
+  return <details className="check-row"><summary><StatusDot status={check.status} /><span className="check-row-main"><strong>{hasEvent ? 'Nearby hazard evaluated' : 'All clear scan'}</strong><small>{formatDate(check.checked_at)} · {timeAgo(check.checked_at)}</small></span><span className={`check-result result-${check.status}`}>{check.status}</span><span className="check-arrow">⌄</span></summary><div className="check-details"><span><b>{check.nearby_earthquake_count || 0}</b> nearby event{check.nearby_earthquake_count === 1 ? '' : 's'}</span><span><b>{check.risk_level || 'unknown'}</b> risk</span>{check.risk_score != null && <span><b>{Number(check.risk_score).toFixed(3)}</b> urgency</span>}{check.latest_earthquake?.place && <span className="check-place">{check.latest_earthquake.place}</span>}{check.workflow_errors?.length > 0 && <p className="bright-warning">{check.workflow_errors.join(' · ')}</p>}</div></details>
 }
 
 function AlertCard({ alert, onConfirm, confirming }) {
   const confirmed = alert.status === 'confirmed'
-  return <article className={`dashboard-alert ${confirmed ? 'alert-confirmed' : 'alert-active'}`}>
-    <div className="dashboard-alert-head"><div><span className="dashboard-kicker">{alert.hazard || 'HAZARD'} · {alert.risk_level || 'ACTIVE'}</span><h3>{confirmed ? 'Household marked safe' : 'Action required now'}</h3></div><span className="dashboard-alert-status">{alert.status}</span></div>
-    <p className="dashboard-alert-message">{alert.message}</p>
-    <div className="dashboard-alert-meta"><span>Delivery: <b>{alert.delivery_status || 'pending'}</b></span><span>Channel: <b>{alert.delivery_channel || 'not sent'}</b></span></div>
-    {alert.delivery_error && <p className="dashboard-warning">Delivery provider response: {alert.delivery_error}</p>}
-    {alert.sources?.length > 0 && <details className="dashboard-details"><summary>View guidance sources</summary><ul>{alert.sources.map((source, index) => <li key={index}>{source.source || source.title || 'Guidance source'}{source.page ? ` · page ${source.page}` : ''}</li>)}</ul></details>}
-    {!confirmed && <button className="dashboard-safe-button" onClick={onConfirm} disabled={confirming}>{confirming ? 'Updating safety status…' : '✓ I’m safe — stop escalation'}</button>}
-  </article>
+  return <article className={`bright-alert ${confirmed ? 'alert-is-confirmed' : ''}`}><div className="bright-alert-title"><div><span className="bright-eyebrow">{alert.hazard || 'HAZARD'} · {alert.risk_level || 'ACTIVE'}</span><h2>{confirmed ? 'Household marked safe' : 'Action needed now'}</h2></div><span className="alert-status-chip">{alert.status}</span></div><p>{alert.message}</p><div className="alert-meta"><span>Delivery <b>{alert.delivery_status || 'pending'}</b></span><span>Channel <b>{alert.delivery_channel || 'not sent'}</b></span><span>{formatDate(alert.created_at)}</span></div>{alert.delivery_error && <p className="bright-warning">Provider response: {alert.delivery_error}</p>}{alert.sources?.length > 0 && <details className="source-details"><summary>View guidance sources</summary><ul>{alert.sources.map((source, index) => <li key={index}>{source.source || source.title || 'Guidance source'}{source.page ? ` · page ${source.page}` : ''}</li>)}</ul></details>}{!confirmed && <button className="safe-action" onClick={onConfirm} disabled={confirming}>{confirming ? 'Updating safety status…' : '✓ I’m safe — stop escalation'}</button>}</article>
 }
 
 export default function Dashboard() {
   const { householdId: routeHouseholdId } = useParams()
-  const [householdId, setHouseholdId] = useState(routeHouseholdId || null)
-  const [status, setStatus] = useState(null), [error, setError] = useState(null), [confirming, setConfirming] = useState(false)
-  const loadStatus = useCallback(async () => { try { const id = householdId || (await getMyHousehold()).household.id; setHouseholdId(id); setStatus(await getHouseholdStatus(id)); setError(null) } catch (err) { setError(err.message) } }, [householdId])
-  useEffect(() => { const initial = window.setTimeout(loadStatus, 0); const timer = setInterval(loadStatus, 30000); return () => { clearTimeout(initial); clearInterval(timer) } }, [loadStatus])
-  async function handleConfirm() { setConfirming(true); try { await confirmSafe(householdId); await loadStatus() } catch (err) { setError(err.message) } finally { setConfirming(false) } }
-  if (error) return <main className="dashboard-shell"><div className="dashboard-error">{error}</div></main>
-  if (!status) return <main className="dashboard-shell"><div className="dashboard-loading"><span className="live-dot" /> Connecting to SentinelHome monitoring…</div></main>
-  const assessment = status.last_assessment || {}, active = status.active_alerts || []
+  const [household, setHousehold] = useState(null)
+  const [status, setStatus] = useState(null)
+  const [error, setError] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [now, setNow] = useState(0)
+  const householdId = routeHouseholdId || household?.id
+
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setRefreshing(true)
+    try {
+      const details = routeHouseholdId ? await getHousehold(routeHouseholdId) : await getMyHousehold()
+      setHousehold(details.household)
+      setStatus(await getHouseholdStatus(details.household.id))
+      setError(null)
+    } catch (err) { setError(err.message) } finally { setRefreshing(false) }
+  }, [routeHouseholdId])
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => { setNow(Date.now()); load() }, 0)
+    const poll = window.setInterval(() => load(true), 15000)
+    const clock = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => { window.clearTimeout(initial); window.clearInterval(poll); window.clearInterval(clock) }
+  }, [load])
+
+  async function handleConfirm() { setConfirming(true); try { await confirmSafe(householdId); await load(true) } catch (err) { setError(err.message) } finally { setConfirming(false) } }
   async function handleLogout() { await logoutAccount(); window.location.href = '/login' }
-  return <main className="dashboard-shell">
-    <header className="dashboard-hero"><div><Link className="dashboard-back" to="/">← SentinelHome</Link><span className="dashboard-kicker">HOUSEHOLD COMMAND CENTER</span><h1>Your safety dashboard</h1><p>Live protection status, risk intelligence and response guidance for your household.</p></div><div><div className={`dashboard-monitor-pill ${status.safe ? 'monitor-safe' : 'monitor-alert'}`}><span className="live-dot" />{status.safe ? 'HOUSEHOLD SAFE' : 'MONITORING ACTIVE'}</div><button className="dashboard-logout" onClick={handleLogout}>Sign out</button></div></header>
-    <section className="dashboard-grid dashboard-overview"><article className="dashboard-glass dashboard-status-card"><div className="dashboard-card-title"><span>Current protection state</span><strong>{status.monitoring_state || 'monitoring'}</strong></div><div className="dashboard-risk-orb"><div><small>FINAL URGENCY</small><strong>{status.risk_score ?? '—'}</strong><span>{status.risk_level || 'not assessed'}</span></div></div><div className="dashboard-status-copy"><p>{status.safe ? 'Your household has confirmed safety. Escalation is paused.' : 'SentinelHome is watching for nearby hazards and will notify your configured contact.'}</p><small>Last update: {status.updated_at ? new Date(status.updated_at).toLocaleString() : 'live'}</small></div></article>
-      <article className="dashboard-glass dashboard-intelligence"><div className="dashboard-card-title"><span>Latest intelligence</span><strong>{assessment.hazard || 'Earthquake model'}</strong></div><div className="dashboard-score-grid"><Score label="Damage grade" value={assessment.damage_grade} /><Score label="Physical risk" value={assessment.physical_damage_risk} tone="score-blue" /><Score label="Vulnerability" value={assessment.vulnerability_score} tone="score-purple" /><Score label="Urgency" value={assessment.urgency_score} tone="score-orange" /></div><div className="dashboard-progress"><span style={{ width: `${Math.max(0, Math.min(100, (Number(status.risk_score) || 0) * 100))}%` }} /></div><p className="dashboard-muted">Risk score is calculated from building damage, hazard severity and household vulnerability.</p></article></section>
-    {active.length > 0 ? <section><div className="dashboard-section-heading"><span className="dashboard-kicker">RESPONSE CENTER</span><h2>Active alert{active.length > 1 ? 's' : ''}</h2></div>{active.map((alert) => <AlertCard alert={alert} onConfirm={handleConfirm} confirming={confirming} key={alert.id} />)}</section> : <section className="dashboard-glass dashboard-clear"><span className="clear-icon">✓</span><div><span className="dashboard-kicker">ALL CLEAR</span><h2>No active alerts</h2><p>Your household is currently being monitored. We’ll surface guidance here when a nearby event needs your attention.</p></div></section>}
-    <section className="dashboard-section-heading recent-heading"><span className="dashboard-kicker">AUDIT TRAIL</span><h2>Recent activity</h2></section><div className="dashboard-glass dashboard-history">{(status.recent_alerts || []).length === 0 ? <p className="dashboard-muted">No previous alerts recorded.</p> : status.recent_alerts.map((alert) => <div className="history-row" key={alert.id}><span className="history-dot" /><div><b>{alert.hazard} response</b><p>{alert.status} · {alert.delivery_status || 'not delivered'}</p></div><small>{alert.created_at ? new Date(alert.created_at).toLocaleString() : ''}</small></div>)}</div>
+
+  const score = Number(status?.risk_score)
+  const riskPercent = Number.isFinite(score) ? Math.round(Math.max(0, Math.min(1, score)) * 100) : 0
+  const nextRunAt = status?.scheduler?.next_run_at
+  const recentChecks = status?.recent_checks || []
+  const activeAlerts = status?.active_alerts || []
+  const latestCheck = status?.last_check
+  const protectionLabel = activeAlerts.length ? 'Action required' : status?.scheduler?.running ? 'Protected and monitoring' : 'Monitoring paused'
+  const locationLabel = household ? `${Number(household.latitude).toFixed(3)}°, ${Number(household.longitude).toFixed(3)}°` : 'Household location'
+  const vulnerabilityCount = household?.vulnerable_members?.length || 0
+  const lastCheckStatus = useMemo(() => latestCheck?.status === 'degraded' ? 'Needs attention' : latestCheck ? 'Healthy check' : 'Awaiting first check', [latestCheck])
+
+  if (error) return <main className="bright-dashboard"><div className="bright-error"><span>Connection issue</span><h1>We couldn’t load your safety desk.</h1><p>{error}</p><button className="bright-button" onClick={() => load()}>Try again</button></div></main>
+  if (!status || !household) return <main className="bright-dashboard bright-loading"><div className="loading-orbit"><span className="live-dot" /></div><h1>Preparing your safety desk</h1><p>Connecting to household monitoring…</p></main>
+
+  return <main className="bright-dashboard">
+    <header className="bright-topbar"><Link className="bright-brand" to="/">Sentinel<span>Home</span></Link><div className="bright-top-actions"><span className="sync-label"><span className="sync-dot" />{refreshing ? 'Syncing live data' : `Updated ${timeAgo(status.last_check?.checked_at)}`}</span><button className="round-action" onClick={() => load()} aria-label="Refresh dashboard">↻</button><button className="bright-signout" onClick={handleLogout}>Sign out</button></div></header>
+    <section className="bright-hero"><img src="/assets/dashboard-neighborhood.png" alt="Sunlit neighborhood protected by SentinelHome" /><div className="bright-hero-wash" /><div className="bright-hero-copy"><span className="bright-eyebrow">HOUSEHOLD COMMAND CENTER</span><h1>Your home, watched with care.</h1><p>Real-time hazard checks and thoughtful guidance for the people who matter most.</p><div className={`protection-pill ${activeAlerts.length ? 'pill-alert' : 'pill-safe'}`}><span className="pulse-dot" />{protectionLabel}</div></div><div className="hero-location"><span>⌖</span><div><small>Monitoring location</small><b>{locationLabel}</b></div></div></section>
+    <section className="bright-metrics" aria-label="Monitoring overview"><MetricCard eyebrow="Last check" value={latestCheck ? timeAgo(latestCheck.checked_at) : '—'} detail={formatDate(latestCheck?.checked_at)} tone="blue" /><MetricCard eyebrow="Next check" value={countdown(nextRunAt, now)} detail={nextRunAt ? formatDate(nextRunAt) : 'Scheduler not running'} tone="mint" /><MetricCard eyebrow="Check cadence" value={status.scheduler.interval_minutes ? `${status.scheduler.interval_minutes} min` : 'Manual'} detail={status.scheduler.running ? 'Automatic monitoring' : 'Automatic checks paused'} tone="violet" /><MetricCard eyebrow="Nearby events" value={status.nearby_earthquake_count ?? 0} detail="From the latest hazard scan" tone="sun" /></section>
+    <section className="bright-layout"><div className="bright-main-column">
+      <article className="bright-card risk-card"><div className="card-heading"><div><span className="bright-eyebrow">LIVE RISK PICTURE</span><h2>How your household is doing</h2></div><span className={`state-badge state-${status.risk_level || 'unknown'}`}>{status.risk_level || 'not assessed'}</span></div><div className="risk-content"><div className="risk-ring" style={{ '--risk': `${riskPercent}%` }}><div><strong>{Number.isFinite(score) ? score.toFixed(3) : '—'}</strong><small>urgency score</small></div></div><div className="risk-explanation"><h3>{lastCheckStatus}</h3><p>{status.safe ? 'No active alert is waiting for your response. SentinelHome will keep checking the surrounding hazard feed.' : 'An alert is active. Review the guidance below and confirm your household is safe when everyone has been accounted for.'}</p><div className="risk-facts"><span><b>{status.last_assessment?.damage_grade ?? '—'}</b> damage grade</span><span><b>{status.last_assessment?.vulnerability_score ?? '—'}</b> vulnerability</span></div></div></div></article>
+      {activeAlerts.length > 0 ? <section className="alert-stack"><div className="section-label"><span className="bright-eyebrow">RESPONSE CENTER</span><h2>Guidance for your household</h2></div>{activeAlerts.map(alert => <AlertCard key={alert.id} alert={alert} onConfirm={handleConfirm} confirming={confirming} />)}</section> : <article className="bright-card all-clear"><span className="clear-burst">✓</span><div><span className="bright-eyebrow">ALL CLEAR FOR NOW</span><h2>Your household is ready</h2><p>The monitoring service is active. If a nearby event changes your risk, your alert and safety guidance will appear here.</p></div></article>}
+      <article className="bright-card history-card"><div className="card-heading"><div><span className="bright-eyebrow">MONITORING JOURNAL</span><h2>Recent five checks</h2></div><span className="history-caption">Real scheduler runs</span></div>{recentChecks.length ? <div className="check-list">{recentChecks.map(check => <CheckRow key={check.id} check={check} />)}</div> : <div className="empty-checks"><span>◌</span><p>Your first monitoring check will appear here once the scheduler runs.</p></div>}</article>
+    </div><aside className="bright-side-column">
+      <article className="bright-card scheduler-card"><div className="scheduler-orb"><span className="pulse-dot" /></div><span className="bright-eyebrow">SCHEDULER STATUS</span><h2>{status.scheduler.running ? 'Watching continuously' : 'Waiting for scheduler'}</h2><p>{status.scheduler.running ? 'One live cycle checks every registered household.' : 'Automatic checks are not currently running on the backend.'}</p><div className="scheduler-line"><span>Next server run</span><b>{nextRunAt ? formatDate(nextRunAt) : 'Not scheduled'}</b></div><div className="scheduler-line"><span>Last completed</span><b>{latestCheck ? formatDate(latestCheck.checked_at) : 'Not recorded'}</b></div><div className={`server-state ${status.scheduler.running ? 'server-online' : 'server-offline'}`}><span />{status.scheduler.running ? 'Backend monitoring online' : 'Backend monitoring offline'}</div></article>
+      <article className="bright-card household-card"><div className="card-heading"><div><span className="bright-eyebrow">YOUR HOUSEHOLD</span><h2>People & care</h2></div><span className="home-glyph">⌂</span></div><div className="household-number"><strong>{household.household_size}</strong><span>people registered</span></div><div className="care-row"><span className="care-icon">♥</span><div><b>{vulnerabilityCount ? `${vulnerabilityCount} care needs noted` : 'No care needs noted'}</b><small>Used to personalize urgency</small></div></div><div className="care-row"><span className="care-icon">☎</span><div><b>{household.primary_contact?.phone || household.emergency_contact?.phone || 'Contact not configured'}</b><small>Primary response contact</small></div></div></article>
+      <article className="bright-card activity-card"><span className="bright-eyebrow">LATEST SYSTEM NOTE</span><h2>{latestCheck?.nearby_earthquake_count ? 'Hazard data evaluated' : 'Area scan complete'}</h2><p>{latestCheck ? `The last cycle completed ${timeAgo(latestCheck.checked_at)} and returned ${latestCheck.nearby_earthquake_count || 0} nearby earthquake events.` : 'No live monitoring cycle has been recorded yet.'}</p><span className={`activity-tag tag-${latestCheck?.status || 'waiting'}`}>{latestCheck?.status || 'waiting'}</span></article>
+    </aside></section>
+    <footer className="bright-footer"><span>SentinelHome · personal safety intelligence</span><span>Last data sync: {formatDate(status.last_check?.checked_at)}</span><span>Hero image generated for SentinelHome</span></footer>
   </main>
 }

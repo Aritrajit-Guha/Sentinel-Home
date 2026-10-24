@@ -4,9 +4,11 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from copy import deepcopy
+from uuid import uuid4
 
 from agent.graph.build_graph import run_agent_workflow
 from app.core.store import households
+from app.core.store import monitoring_runs
 from app.services.hazard_fetcher import fetch_earthquake_data, nearby_earthquakes
 
 
@@ -27,6 +29,7 @@ def run_monitoring_cycle(earthquake_data: dict | None = None, event_callback=Non
     """Fetch hazards once and run each new event through LangGraph."""
 
     checked_at = datetime.now(timezone.utc).isoformat()
+    cycle_id = str(uuid4())
     payload = earthquake_data if earthquake_data is not None else fetch_earthquake_data()
     results = []
 
@@ -95,7 +98,7 @@ def run_monitoring_cycle(earthquake_data: dict | None = None, event_callback=Non
 
         if not simulation:
             households[household["id"]] = household
-        results.append({
+        result = {
             "household_id": household["id"],
             "nearby_earthquake_count": len(events),
             "latest_earthquake": events[0] if events else None,
@@ -106,10 +109,31 @@ def run_monitoring_cycle(earthquake_data: dict | None = None, event_callback=Non
             "escalation_required": bool(workflow.get("escalation_required")) if workflow else False,
             "workflow_errors": list(workflow.get("errors", [])) if workflow else [],
             "trace": list(workflow.get("trace", [])) if workflow else [],
-        })
+        }
+        results.append(result)
+
+        # Keep a durable audit trail for the user dashboard. Controlled
+        # simulations intentionally remain outside this production history.
+        if not simulation:
+            errors = result["workflow_errors"]
+            run_status = "degraded" if errors else "completed"
+            monitoring_runs[f"{household['id']}:{cycle_id}"] = {
+                "id": cycle_id,
+                "household_id": household["id"],
+                "checked_at": checked_at,
+                "source": "live",
+                "status": run_status,
+                "nearby_earthquake_count": len(events),
+                "latest_earthquake": events[0] if events else None,
+                "assessment": result["assessment"],
+                "risk_score": (result["assessment"] or {}).get("urgency_score"),
+                "risk_level": (result["assessment"] or {}).get("urgency_level", "unknown"),
+                "workflow_errors": errors,
+            }
 
     return {
         "checked_at": checked_at,
+        "cycle_id": cycle_id,
         "earthquake_events_received": len(payload.get("features", [])),
         "households_checked": len(results),
         "households_with_nearby_earthquakes": sum(

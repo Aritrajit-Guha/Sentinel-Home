@@ -96,3 +96,4 @@ class Store(MutableMapping):
 households = Store("households")
 alerts = Store("alerts")
 users = Store("users")
+monitoring_runs = Store("monitoring_runs")

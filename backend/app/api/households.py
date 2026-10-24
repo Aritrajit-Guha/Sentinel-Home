@@ -5,11 +5,13 @@ from flask import Blueprint, jsonify, request
 
 from app.core.auth import current_user, owns_household
 from app.core.store import alerts, households, users
+from app.core.store import monitoring_runs
 from app.models.household import validate_household
 from app.services.alert_service import is_simulation_alert, risk_level_for
 from app.services.geocoding_service import geocode
 from app.services.hazard_fetcher import fetch_weather_data, nearby_earthquakes
 from app.services.contact_service import prepare_contacts
+from app.scheduling.scheduler import scheduler_status
 
 
 households_bp = Blueprint("households", __name__, url_prefix="/api/households")
@@ -167,6 +169,17 @@ def get_household_status(household_id):
     else:
         monitoring_state = "awaiting_confirmation"
 
+    recent_checks = sorted(
+        [
+            run for run in monitoring_runs.values()
+            if run.get("household_id") == household_id and run.get("source") == "live"
+        ],
+        key=lambda run: run.get("checked_at", ""),
+        reverse=True,
+    )[:5]
+    scheduler = scheduler_status()
+    latest_check = recent_checks[0] if recent_checks else None
+
     return jsonify({
         "status": "ok",
         "household_id": household_id,
@@ -182,6 +195,13 @@ def get_household_status(household_id):
         "latest_earthquake": production_latest_earthquake,
         "active_alerts": active_alerts,
         "recent_alerts": household_alerts[:5],
+        "scheduler": scheduler,
+        "last_check": latest_check,
+        "recent_checks": recent_checks,
+        "current_cycle_state": (
+            "degraded" if latest_check and latest_check.get("status") == "degraded"
+            else "completed" if latest_check else "no_history"
+        ),
     })
 
 
