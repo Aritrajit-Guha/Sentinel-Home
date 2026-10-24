@@ -1680,6 +1680,16 @@ body,
 @media (max-width: 900px) { .bright-metrics { grid-template-columns: repeat(2, 1fr); }.bright-layout { grid-template-columns: 1fr; }.bright-side-column { grid-template-columns: repeat(3, 1fr); }.bright-side-column .bright-card { min-width: 0; }.bright-footer { flex-wrap: wrap; } }
 @media (max-width: 620px) { .bright-dashboard { padding: 15px 12px 26px; }.bright-topbar { align-items: flex-start; }.bright-top-actions { gap: 7px; }.sync-label { display: none; }.bright-signout { padding: 9px 10px; }.bright-hero { min-height: 440px; border-radius: 22px; }.bright-hero-wash { background: linear-gradient(0deg, rgba(255,255,255,.94), rgba(255,255,255,.12) 80%); }.bright-hero-copy { padding: 30px 24px; margin-top: 130px; }.bright-hero h1 { font-size: 2.55rem; }.hero-location { right: 14px; bottom: 14px; }.bright-metrics { gap: 8px; }.bright-metric { padding: 15px 13px; border-radius: 16px; }.bright-metric strong { font-size: 1.2rem; }.bright-card { padding: 19px; border-radius: 18px; }.risk-content { align-items: flex-start; flex-direction: column; }.risk-ring { width: 160px; height: 160px; }.risk-ring::before { width: 134px; height: 134px; }.bright-side-column { grid-template-columns: 1fr; }.bright-alert-title { display: block; }.alert-status-chip { display: inline-block; margin-top: 13px; }.all-clear { align-items: flex-start; }.bright-footer { display: grid; gap: 6px; } }
 .risk-ring { position: relative; }
+.risk-safe-banner, .risk-signal-banner { display:flex; align-items:center; gap:14px; margin-bottom:18px; padding:15px 18px; border-radius:16px; animation:risk-banner-in .45s ease both; }
+.risk-safe-banner { border:1px solid #bcefdc; color:#18765e; background:linear-gradient(135deg,#ecfff7,#f9fffd); }
+.risk-signal-banner { border:1px solid #f5d3a7; color:#a36a1e; background:linear-gradient(135deg,#fff8e9,#fffdf8); }
+.risk-safe-banner strong, .risk-safe-banner small, .risk-signal-banner strong, .risk-signal-banner small { display:block; }
+.risk-safe-banner strong, .risk-signal-banner strong { font-size:.86rem; }
+.risk-safe-banner small, .risk-signal-banner small { margin-top:4px; font-size:.7rem; opacity:.8; }
+.risk-shield, .risk-alert-symbol { display:grid; flex:0 0 auto; width:42px; height:42px; place-items:center; border-radius:14px; font-size:1.3rem; font-weight:900; }
+.risk-shield { color:#fff; background:linear-gradient(145deg,#35c99b,#4fb9df); box-shadow:0 7px 16px rgba(53,201,155,.24); }
+.risk-alert-symbol { color:#fff; background:linear-gradient(145deg,#efad55,#e37d62); box-shadow:0 7px 16px rgba(227,125,98,.2); }
+@keyframes risk-banner-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 .execution-card { overflow: visible; }
 .trace-run-status { text-transform: uppercase; }
 .trace-run-summary { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
