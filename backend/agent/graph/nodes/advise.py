@@ -161,6 +161,17 @@ def advise_node(state: SentinelState) -> SentinelState:
         return append_error(state, f"advice generation failed: {exc}")
     traced = trace_event(
         state,
+        stage="embedding_generation",
+        status="completed" if advice.get("retrieved_guidance") else "degraded",
+        title="RAG query embedded for retrieval",
+        request={"query": advice.get("query"), "embedding_provider": "Voyage AI"},
+        response={"embedded": bool(advice.get("retrieved_guidance")), "vector_store": "Pinecone"},
+        error=advice.get("generation_error") if advice.get("degraded") else None,
+    )
+    traced["trace"][-1]["source"] = "live_rag"
+    traced["trace"][-1]["upstream"] = "urgency_scoring"
+    traced = trace_event(
+        traced,
         stage="rag_retrieval",
         status="completed" if advice.get("retrieved_guidance") else "degraded",
         title="Pinecone safety-guidance retrieval",
@@ -169,7 +180,7 @@ def advise_node(state: SentinelState) -> SentinelState:
         error=advice.get("generation_error") if advice.get("degraded") else None,
     )
     traced["trace"][-1]["source"] = "live_rag"
-    traced["trace"][-1]["upstream"] = "urgency_scoring"
+    traced["trace"][-1]["upstream"] = "embedding_generation"
     traced = trace_event(
         traced,
         stage="guidance_generation",

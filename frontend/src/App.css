@@ -1680,3 +1680,32 @@ body,
 @media (max-width: 900px) { .bright-metrics { grid-template-columns: repeat(2, 1fr); }.bright-layout { grid-template-columns: 1fr; }.bright-side-column { grid-template-columns: repeat(3, 1fr); }.bright-side-column .bright-card { min-width: 0; }.bright-footer { flex-wrap: wrap; } }
 @media (max-width: 620px) { .bright-dashboard { padding: 15px 12px 26px; }.bright-topbar { align-items: flex-start; }.bright-top-actions { gap: 7px; }.sync-label { display: none; }.bright-signout { padding: 9px 10px; }.bright-hero { min-height: 440px; border-radius: 22px; }.bright-hero-wash { background: linear-gradient(0deg, rgba(255,255,255,.94), rgba(255,255,255,.12) 80%); }.bright-hero-copy { padding: 30px 24px; margin-top: 130px; }.bright-hero h1 { font-size: 2.55rem; }.hero-location { right: 14px; bottom: 14px; }.bright-metrics { gap: 8px; }.bright-metric { padding: 15px 13px; border-radius: 16px; }.bright-metric strong { font-size: 1.2rem; }.bright-card { padding: 19px; border-radius: 18px; }.risk-content { align-items: flex-start; flex-direction: column; }.risk-ring { width: 160px; height: 160px; }.risk-ring::before { width: 134px; height: 134px; }.bright-side-column { grid-template-columns: 1fr; }.bright-alert-title { display: block; }.alert-status-chip { display: inline-block; margin-top: 13px; }.all-clear { align-items: flex-start; }.bright-footer { display: grid; gap: 6px; } }
 .risk-ring { position: relative; }
+.execution-card { overflow: visible; }
+.trace-run-status { text-transform: uppercase; }
+.trace-run-summary { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
+.trace-run-summary span { padding:9px 11px; border-radius:10px; color:#507080; background:#f2f8fa; font-size:.72rem; }
+.trace-run-summary b { color:#2e6176; font-family:ui-monospace,monospace; }
+.trace-timeline { display:grid; gap:10px; }
+.trace-event { padding:15px; border:1px solid #e2edf0; border-radius:14px; background:#fbfefe; }
+.trace-event:hover { border-color:#99ded1; box-shadow:0 8px 22px rgba(43,169,143,.08); }
+.trace-completed { border-left:4px solid #42bd91; }
+.trace-running, .trace-started { border-left:4px solid #56aee2; }
+.trace-skipped { border-left:4px solid #b8c5ca; background:#f8fbfc; }
+.trace-degraded { border-left:4px solid #e5a84c; }
+.trace-failed { border-left:4px solid #e27b68; }
+.trace-event-head { display:flex; align-items:center; gap:10px; }
+.trace-event-head > div { min-width:0; flex:1; }
+.trace-event-head strong, .trace-event-head small { display:block; }
+.trace-event-head strong { color:#294e63; font-size:.82rem; }
+.trace-event-head small { margin-top:4px; color:#8298a3; font: .64rem ui-monospace,monospace; }
+.trace-state { padding:5px 7px; border-radius:999px; color:#fff; font-size:.59rem; font-weight:900; text-transform:uppercase; }
+.trace-state-completed { background:#39b98d; }.trace-state-skipped { background:#9cadb4; }.trace-state-degraded { background:#d99b34; }.trace-state-failed { background:#d86c5b; }.trace-state-running,.trace-state-started { background:#4da5d9; }
+.trace-source { color:#5f9b9a; font:.62rem ui-monospace,monospace; text-align:right; }
+.trace-detail { margin:10px 0 0; color:#637c89; font-size:.75rem; line-height:1.5; }
+.trace-meta { display:flex; flex-wrap:wrap; gap:12px; margin-top:10px; color:#89a0aa; font-size:.65rem; }
+.trace-meta b { color:#477083; font-family:ui-monospace,monospace; }
+.trace-json-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:11px; }
+.trace-json { min-width:0; }
+.trace-json summary { padding:8px 10px; border:1px solid #dcebef; border-radius:8px; color:#388bad; cursor:pointer; font-size:.68rem; font-weight:800; }
+.trace-json pre { max-height:260px; overflow:auto; margin:6px 0 0; padding:11px; border-radius:9px; color:#365b68; background:#eef7f8; font:.62rem/1.45 ui-monospace,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+@media (max-width:620px) { .trace-event-head { align-items:flex-start; flex-wrap:wrap; }.trace-source { margin-left:34px; }.trace-json-grid { grid-template-columns:1fr; } }

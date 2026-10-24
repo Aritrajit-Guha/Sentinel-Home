@@ -38,6 +38,20 @@ def assess_node(state: SentinelState) -> SentinelState:
     traced["trace"][-1]["upstream"] = "hazard_api"
     traced = trace_event(
         traced,
+        stage="parameter_validation",
+        status="completed",
+        title="Generated parameters validated",
+        request={"parameters": assessment.get("parameters", {})},
+        response={
+            "valid": True,
+            "provider": (assessment.get("parameter_generation") or {}).get("provider"),
+            "source": (assessment.get("parameter_generation") or {}).get("source"),
+        },
+    )
+    traced["trace"][-1]["source"] = (assessment.get("parameter_generation") or {}).get("source", "live_provider")
+    traced["trace"][-1]["upstream"] = "parameter_generation"
+    traced = trace_event(
+        traced,
         stage="ml_inference",
         status="completed",
         title="XGBoost damage and urgency assessment",

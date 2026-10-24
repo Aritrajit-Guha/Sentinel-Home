@@ -43,7 +43,12 @@ def trace_event(
         "status": status,
         "title": title,
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "completed_at": datetime.now(timezone.utc).isoformat() if status in {"completed", "failed", "degraded", "skipped", "timeout"} else None,
+        "duration_ms": 0,
         "execution_mode": "live",
+        "retry_count": 0,
+        "error": error,
     }
     if detail is not None:
         event["detail"] = detail

@@ -48,6 +48,19 @@ def alert_node(state: SentinelState) -> SentinelState:
         state["trace"][-1]["provider"] = "Telegram"
         state["trace"][-1]["source"] = "live_provider"
         state["trace"][-1]["upstream"] = "alert_persistence"
+    elif alert.get("delivery_status") == "pending":
+        state = trace_event(
+            state,
+            stage="notification",
+            status="skipped",
+            title="Telegram notification not sent",
+            detail="Automatic delivery is disabled; the alert remains persisted for review.",
+            request={"channel": "telegram", "automatic_delivery": False},
+            response={"delivery_status": alert.get("delivery_status")},
+        )
+        state["trace"][-1]["provider"] = "Telegram"
+        state["trace"][-1]["source"] = "configuration"
+        state["trace"][-1]["upstream"] = "alert_persistence"
 
     state = trace_event(
         state,

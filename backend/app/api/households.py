@@ -169,7 +169,7 @@ def get_household_status(household_id):
     else:
         monitoring_state = "awaiting_confirmation"
 
-    recent_checks = sorted(
+    recent_checks_full = sorted(
         [
             run for run in monitoring_runs.values()
             if run.get("household_id") == household_id and run.get("source") == "live"
@@ -177,8 +177,24 @@ def get_household_status(household_id):
         key=lambda run: run.get("checked_at", ""),
         reverse=True,
     )[:5]
+    recent_checks = [
+        {key: value for key, value in run.items() if key != "trace"}
+        for run in recent_checks_full
+    ]
     scheduler = scheduler_status()
     latest_check = recent_checks[0] if recent_checks else None
+    latest_check_full = recent_checks_full[0] if recent_checks_full else None
+    running_checks = [
+        run for run in monitoring_runs.values()
+        if run.get("household_id") == household_id
+        and run.get("source") == "live"
+        and run.get("status") == "running"
+    ]
+    current_cycle = max(running_checks, key=lambda run: run.get("started_at", "")) if running_checks else None
+    hazard_response = None
+    if latest_check_full:
+        hazard_events = [e for e in latest_check_full.get("trace", []) if e.get("stage") == "hazard_api"]
+        hazard_response = hazard_events[-1] if hazard_events else None
 
     return jsonify({
         "status": "ok",
@@ -199,10 +215,54 @@ def get_household_status(household_id):
         "last_check": latest_check,
         "recent_checks": recent_checks,
         "current_cycle_state": (
-            "degraded" if latest_check and latest_check.get("status") == "degraded"
+            "running" if current_cycle else "degraded" if latest_check and latest_check.get("status") == "degraded"
             else "completed" if latest_check else "no_history"
         ),
+        "current_cycle": current_cycle,
+        "hazard_response": hazard_response,
     })
+
+
+def _owned_household_or_error(household_id):
+    household = households.get(household_id)
+    if household is None:
+        return None, (jsonify({"status": "error", "message": "Household not found"}), 404)
+    user = current_user()
+    if household.get("owner_id") and not user:
+        return None, (jsonify({"status": "error", "message": "Authentication required"}), 401)
+    if user and household.get("owner_id") and not owns_household(household_id, user):
+        return None, (jsonify({"status": "error", "message": "Household access denied"}), 403)
+    return household, None
+
+
+@households_bp.get("/<household_id>/monitoring/latest")
+def get_latest_monitoring(household_id):
+    household, error = _owned_household_or_error(household_id)
+    if error:
+        return error
+    runs = sorted(
+        [run for run in monitoring_runs.values()
+         if run.get("household_id") == household_id and run.get("source") == "live"],
+        key=lambda run: run.get("started_at", ""), reverse=True,
+    )
+    return jsonify({"status": "ok", "household_id": household_id, "run": runs[0] if runs else None})
+
+
+@households_bp.get("/<household_id>/monitoring/runs")
+def get_monitoring_runs(household_id):
+    household, error = _owned_household_or_error(household_id)
+    if error:
+        return error
+    try:
+        limit = min(max(int(request.args.get("limit", 5)), 1), 20)
+    except ValueError:
+        limit = 5
+    runs = sorted(
+        [run for run in monitoring_runs.values()
+         if run.get("household_id") == household_id and run.get("source") == "live"],
+        key=lambda run: run.get("started_at", ""), reverse=True,
+    )[:limit]
+    return jsonify({"status": "ok", "household_id": household_id, "runs": runs})
 
 
 @households_bp.post("/<household_id>/assessment")

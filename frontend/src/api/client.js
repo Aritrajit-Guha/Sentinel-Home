@@ -45,6 +45,14 @@ export function getHouseholdStatus(householdId) {
   return request(`/api/households/${householdId}/status`);
 }
 
+export function getLatestMonitoring(householdId) {
+  return request(`/api/households/${householdId}/monitoring/latest`);
+}
+
+export function getMonitoringRuns(householdId, limit = 5) {
+  return request(`/api/households/${householdId}/monitoring/runs?limit=${limit}`);
+}
+
 export function getHouseholdEarthquakes(householdId, radiusKm = 500) {
   return request(`/api/households/${householdId}/hazards/earthquakes?radius_km=${radiusKm}`);
 }
