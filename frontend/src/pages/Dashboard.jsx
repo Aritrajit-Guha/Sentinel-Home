@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { confirmSafe, getHousehold, getHouseholdStatus, getLatestMonitoring, getMyHousehold, logoutAccount } from '../api/client'
 
@@ -98,6 +98,9 @@ export default function Dashboard() {
   async function handleConfirm() { setConfirming(true); try { await confirmSafe(householdId); await load(true) } catch (err) { setError(err.message) } finally { setConfirming(false) } }
   async function handleLogout() { await logoutAccount(); window.location.href = '/login' }
 
+  if (error) return <main className="bright-dashboard"><div className="bright-error"><span>Connection issue</span><h1>We couldn’t load your safety desk.</h1><p>{error}</p><button className="bright-button" onClick={() => load()}>Try again</button></div></main>
+  if (!status || !household) return <main className="bright-dashboard bright-loading"><div className="loading-orbit"><span className="live-dot" /></div><h1>Preparing your safety desk</h1><p>Connecting to household monitoring…</p></main>
+
   const score = Number(status?.risk_score)
   const hasScore = Number.isFinite(score)
   const riskPercent = hasScore ? Math.round(Math.max(0, Math.min(1, score)) * 100) : 0
@@ -108,7 +111,7 @@ export default function Dashboard() {
   const protectionLabel = activeAlerts.length ? 'Action required' : status?.scheduler?.running ? 'Protected and monitoring' : 'Monitoring paused'
   const locationLabel = household ? `${Number(household.latitude).toFixed(3)}°, ${Number(household.longitude).toFixed(3)}°` : 'Household location'
   const vulnerabilityCount = household?.vulnerable_members?.length || 0
-  const lastCheckStatus = useMemo(() => latestCheck?.status === 'degraded' ? 'Needs attention' : latestCheck ? 'Healthy check' : 'Awaiting first check', [latestCheck])
+  const lastCheckStatus = latestCheck?.status === 'degraded' ? 'Needs attention' : latestCheck ? 'Healthy check' : 'Awaiting first check'
   const isSafeNow = hasScore && score <= 0 && activeAlerts.length === 0 && status.safe && Boolean(status.hazard_response)
   const nextCheckLabel = status.scheduler.running
     ? (nextRunAt && new Date(nextRunAt).getTime() > now ? countdown(nextRunAt, now) : 'Waiting for schedule')
