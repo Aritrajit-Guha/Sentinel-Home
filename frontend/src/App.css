@@ -1690,6 +1690,29 @@ body,
 .risk-shield { color:#fff; background:linear-gradient(145deg,#35c99b,#4fb9df); box-shadow:0 7px 16px rgba(53,201,155,.24); }
 .risk-alert-symbol { color:#fff; background:linear-gradient(145deg,#efad55,#e37d62); box-shadow:0 7px 16px rgba(227,125,98,.2); }
 @keyframes risk-banner-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+/* Keep the landing experience readable even before motion starts or when the
+   browser disables animations. Content must never remain in a fade-in state. */
+.desktop::before { filter: brightness(1.16) saturate(1.08); }
+.desktop .site-nav,
+.desktop .status-pill,
+.desktop .hero-copy h1,
+.desktop .hero-copy p,
+.desktop .hero-actions,
+.desktop .workflow-card,
+.desktop .radar-card,
+.desktop .mobile-card,
+.desktop .technology-cards,
+.desktop .earth-image { opacity: 1 !important; transform: none !important; }
+.desktop .site-nav,
+.desktop .status-pill,
+.desktop .hero-copy h1,
+.desktop .hero-copy p,
+.desktop .hero-actions,
+.desktop .workflow-card,
+.desktop .radar-card,
+.desktop .mobile-card,
+.desktop .technology-cards,
+.desktop .earth-image { animation: none !important; }
 .execution-card { overflow: visible; }
 .trace-run-status { text-transform: uppercase; }
 .trace-run-summary { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
